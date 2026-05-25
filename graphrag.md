@@ -1,7 +1,7 @@
 # GraphRAG over PACS — natural-language queries, graph-shaped answers
 
-The reasoner in `reasoner.js` answers *one* question: "can this person open
-this door now?" Operators ask many more — and they ask in English:
+A single hand-written Cypher query answers *one* question: "can this person
+open this door now?" Operators ask many more — and they ask in English:
 
 > *"Who can enter the server room after hours?"*
 > *"Which doors does Alice have access to today?"*
@@ -84,32 +84,43 @@ only."
 | Hallucinates plausibly-shaped lies | Worst case: returns empty |
 | No notion of *time* | `active_during` is a first-class edge |
 
-## Two callers, one graph: the reasoner and GraphRAG
+## Two callers, one graph: hand-written Cypher and GraphRAG
 
-`reasoner.js` and GraphRAG are sibling consumers of the same graph, not
-two halves of a separate concept:
+The hand-written Cypher in `neo4j/cypher.md` and the GraphRAG agent
+in `agent/agent.py` are sibling consumers of the same graph, not two
+halves of a separate concept:
 
-- `reasoner.js` — **closed-form questions**. "Grant or deny?" The traversal
-  is fixed; the inputs vary. Fast, deterministic, runs at the door.
-- GraphRAG — **open-form questions**. "Who, what, when, what-if?" The
-  traversal is *chosen* by an LLM from the schema; execution is still
-  deterministic. Slower, runs in the operator console.
+- **Hand-written Cypher** — closed-form questions you already know how
+  to ask. "Grant or deny right now?" The traversal is fixed; the inputs
+  vary. Fast, deterministic, runs in the Neo4j Browser or via a driver.
+- **GraphRAG agent** — open-form questions you'd ask in English.
+  "Who, what, when, what-if?" The traversal is *chosen* by an LLM from
+  the schema; execution is still deterministic. Slower, runs in the
+  operator console.
 
 Same graph. Same ontology. Different *callers*. That is the whole idea:
-the ontology is the contract, and every consumer — the panel making a
-real-time decision, the auditor asking a question in English, the
-dashboard counting things — walks the same edges.
+the ontology is the contract, and every consumer — the dashboard counting
+things, the auditor asking a question in English, the on-call engineer
+running a Cypher one-liner — walks the same edges.
 
 ## What to build next (when you're ready)
 
-- A `query.js` that takes a `{start, walk, return}` plan and executes it
-  against `graph.json` — the boring deterministic half of GraphRAG.
-- A tiny adapter that calls an LLM with the schema + question to *produce*
-  that plan, and another call to render the result. Keep the two LLM calls
-  separate; never let the LLM see the raw graph and the question in the
-  same turn — that's how you reintroduce the hallucinations you came here
-  to avoid.
+- The next phase is the **GraphRAG vs SQL comparison**: a relational
+  mirror of the same data and the same canonical questions written in
+  both query languages, with an honest side-by-side analysis.
+- See `PROGRESS.md` Phase 4 for the plan. The GraphRAG side already
+  emits per-question transcripts to `agent/transcripts/`; the SQL side
+  is what we need to build to compare against.
+
+**Historical note:** `agent/agent.py` is the implementation of what
+this file's first version called "what to build next." The two LLM calls
+are strictly separated — the planner sees the schema (`ontology.md`),
+the renderer sees the rows. They never overlap. See
+`architecture.html` §6 for a deep dive.
+
+Still on the wish list (out of scope for now):
+
 - An event log (`Event` class: actor, reader, time, decision) so the
-  graph isn't only policy but also history. Then audit questions —
+  graph carries history as well as policy. Then audit questions —
   "show me every denial at the Server Room last week" — become
   traversals too.

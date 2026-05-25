@@ -39,7 +39,6 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Layout: side TOC + main column on desktop; stacked on mobile. */
   .wrap {
     display: grid;
     grid-template-columns: 240px minmax(0, var(--max-w));
@@ -53,7 +52,6 @@
     nav.toc { position: static; max-height: none; }
   }
 
-  /* TOC */
   nav.toc {
     position: sticky;
     top: 20px;
@@ -76,10 +74,12 @@
     content: counter(toc, decimal-leading-zero);
     color: var(--muted); margin-right: 8px; font-family: var(--font-mono); font-size: 11px;
   }
+  nav.toc ul { list-style: none; padding-left: 18px; margin: 4px 0; }
+  nav.toc ul li { counter-increment: none; margin: 2px 0; font-size: 12px; }
+  nav.toc ul li::before { content: "·"; margin-right: 6px; }
   nav.toc a { color: var(--ink); text-decoration: none; }
   nav.toc a:hover { color: var(--accent); }
 
-  /* Headings */
   h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; line-height: 1.2; }
   h2 {
     font-size: 22px; margin: 56px 0 8px; padding-top: 16px;
@@ -89,11 +89,10 @@
   h4 { font-size: 14px; margin: 18px 0 4px; color: var(--muted);
        text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
 
-  /* Section anchor styles */
   section h2 { scroll-margin-top: 20px; }
+  section h3 { scroll-margin-top: 20px; }
   section { padding-bottom: 8px; }
 
-  /* Header / hero */
   header.hero {
     border: 1px solid var(--line);
     background: linear-gradient(180deg, var(--panel) 0%, var(--bg) 100%);
@@ -117,7 +116,6 @@
     border-radius: 0 var(--radius) var(--radius) 0;
   }
 
-  /* Paragraphs and lists */
   p { margin: 12px 0; }
   ul, ol { padding-left: 22px; margin: 12px 0; }
   li { margin: 4px 0; }
@@ -125,14 +123,12 @@
   em { color: var(--ink); }
   a { color: var(--accent); }
 
-  /* Inline code */
   code {
     font-family: var(--font-mono); font-size: 0.92em;
     background: var(--panel2); padding: 1px 6px; border-radius: 4px;
     color: var(--ink);
   }
 
-  /* Code blocks */
   pre {
     background: var(--panel) !important;
     border: 1px solid var(--line);
@@ -154,7 +150,6 @@
   }
   .filelabel + pre { border-top-left-radius: 0; margin-top: 0; }
 
-  /* Diagrams */
   pre.diagram {
     background: var(--bg) !important;
     border: 1px dashed var(--line);
@@ -162,7 +157,6 @@
     font-size: 12px;
   }
 
-  /* Callouts */
   .callout {
     margin: 18px 0; padding: 12px 16px;
     border-left: 3px solid var(--accent);
@@ -180,29 +174,24 @@
   .callout.warn .label { color: var(--warn); }
   .callout.good .label { color: var(--good); }
 
-  /* Tables */
   table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14px; }
   th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-weight: 600; font-size: 12px;
        text-transform: uppercase; letter-spacing: 0.05em; }
   tr:hover td { background: rgba(255,255,255,0.02); }
 
-  /* Layer chips */
   .chip {
     display: inline-block; font-family: var(--font-mono); font-size: 11px;
     padding: 2px 8px; border-radius: 12px; border: 1px solid var(--line);
     color: var(--muted); margin-right: 4px;
   }
-  .chip.js     { color: #f7df1e; border-color: rgba(247,223,30,0.3); }
   .chip.py     { color: #58a6ff; border-color: rgba(88,166,255,0.3); }
   .chip.cypher { color: #ff9e64; border-color: rgba(255,158,100,0.3); }
   .chip.md     { color: var(--muted); }
   .chip.json   { color: var(--purple); border-color: rgba(188,140,255,0.3); }
   .chip.docker { color: #79c0ff; border-color: rgba(121,192,255,0.3); }
 
-  hr.dim {
-    border: 0; border-top: 1px solid var(--line); margin: 24px 0;
-  }
+  hr.dim { border: 0; border-top: 1px solid var(--line); margin: 24px 0; }
 
   footer {
     margin-top: 60px; padding-top: 20px;
@@ -222,11 +211,21 @@
     <li><a href="#overview">The big picture</a></li>
     <li><a href="#ontology">Layer 1 — Ontology</a></li>
     <li><a href="#instance">Layer 2 — Instance graph</a></li>
-    <li><a href="#reasoner">Layer 3 — Closed-form reasoner</a></li>
-    <li><a href="#viewer">Layer 4 — Visualization</a></li>
-    <li><a href="#neo4j">Layer 5 — Neo4j layer</a></li>
-    <li><a href="#temporal">Layer 6 — Temporal model</a></li>
-    <li><a href="#agent">Layer 7 — GraphRAG agent</a></li>
+    <li><a href="#neo4j">Layer 3 — Neo4j layer</a></li>
+    <li><a href="#temporal">Layer 4 — Temporal model</a></li>
+    <li>
+      <a href="#agent">Layer 5 — GraphRAG agent</a>
+      <ul>
+        <li><a href="#agent-skeleton">Skeleton &amp; entry point</a></li>
+        <li><a href="#agent-prompts">Prompts: stable vs volatile</a></li>
+        <li><a href="#agent-planner">Planner call</a></li>
+        <li><a href="#agent-safety">Safety gate</a></li>
+        <li><a href="#agent-executor">Executor</a></li>
+        <li><a href="#agent-renderer">Renderer call</a></li>
+        <li><a href="#agent-caching">Prompt caching deep dive</a></li>
+        <li><a href="#agent-transcripts">Transcripts &amp; REPL</a></li>
+      </ul>
+    </li>
     <li><a href="#flow">End-to-end data flow</a></li>
     <li><a href="#invariants">Invariants across the stack</a></li>
     <li><a href="#next">Where to go next</a></li>
@@ -239,7 +238,7 @@
 <header class="hero">
   <span class="tag">architecture walkthrough</span>
   <h1>PACS Graph 101 — how it all fits together</h1>
-  <p class="sub">A layer-by-layer tour of a pedagogical knowledge-graph project, from the schema at the top to the GraphRAG agent at the bottom.</p>
+  <p class="sub">A layer-by-layer tour of a pedagogical knowledge-graph project, ending in a deep dive of the GraphRAG agent.</p>
   <blockquote>
     A Physical Access Control System answers one question millions of times a day:
     <strong>"Should this credential, at this reader, right now, open this door?"</strong>
@@ -252,25 +251,19 @@
 <section id="overview">
 <h2>1 · The big picture</h2>
 
-<p>Seven layers, each one building on the last. None of them is large; the value is in how they compose.</p>
+<p>Five layers, each one building on the last. None of them is large; the value is in how they compose.</p>
 
 <pre class="diagram">
    ┌───────────────────────────────────────────────────────┐
-   │  L7 · GraphRAG agent       English question ──► prose │   agent/agent.py
+   │  L5 · GraphRAG agent       English question ──► prose │   agent/agent.py
    │           ▲                                           │   agent/prompts.py
    │           │                                           │
-   │  L6 · Temporal model       validity windows, history  │   graph.json (+enriched)
+   │  L4 · Temporal model       validity windows, history  │   graph.json (enriched)
    │           ▲                                           │   ontology.md (§temporal)
    │           │                                           │
-   │  L5 · Neo4j + Cypher       real graph DB              │   docker-compose.yml
+   │  L3 · Neo4j + Cypher       real graph DB              │   docker-compose.yml
    │           ▲                                           │   neo4j/import.py
    │           │                                           │   neo4j/cypher.md
-   │  L4 · Visualization        vis-network viewer + UI    │   index.html
-   │           ▲                                           │
-   │           │                                           │
-   │  L3 · Closed-form reasoner canAccess() traversal      │   reasoner.js
-   │           ▲                                           │
-   │           │                                           │
    │  L2 · Instance graph       21+ nodes, 25+ edges       │   graph.json
    │           ▲                                           │
    │           │                                           │
@@ -284,8 +277,6 @@
   <tr><th>Path</th><th>Layer</th><th>What it is</th></tr>
   <tr><td><code>ontology.md</code></td><td><span class="chip md">md</span></td><td>The contract — classes + predicates + modeling rationale</td></tr>
   <tr><td><code>graph.json</code></td><td><span class="chip json">json</span></td><td>Instance data conforming to the ontology, with temporal windows</td></tr>
-  <tr><td><code>reasoner.js</code></td><td><span class="chip js">js</span></td><td>Closed-form <code>canAccess(person, door, time)</code> graph traversal</td></tr>
-  <tr><td><code>index.html</code></td><td><span class="chip js">js</span></td><td>vis-network viewer + interactive "Ask the reasoner" panel</td></tr>
   <tr><td><code>docker-compose.yml</code></td><td><span class="chip docker">docker</span></td><td>Neo4j Community service</td></tr>
   <tr><td><code>neo4j/import.py</code></td><td><span class="chip py">py</span></td><td>Loads <code>graph.json</code> into Neo4j with date properties</td></tr>
   <tr><td><code>neo4j/cypher.md</code></td><td><span class="chip cypher">cypher</span></td><td>Teaching ladder of Cypher queries</td></tr>
@@ -296,7 +287,7 @@
 
 <div class="callout">
 <span class="label">why these layers</span>
-Each one answers a question the previous can't. The ontology answers <em>what shape can things be</em>. The instance answers <em>what's actually there</em>. The reasoner answers <em>can X access Y</em>. Neo4j answers <em>any structural question you can compose</em>. The temporal model answers <em>what was true at time T</em>. The agent answers <em>any question in English</em>. Same data, more leverage at every layer.
+Each one answers a question the previous can't. The ontology answers <em>what shape can things be</em>. The instance answers <em>what's actually there</em>. Neo4j answers <em>any structural question you can compose</em>. The temporal model answers <em>what was true at time T</em>. The agent answers <em>any question in English</em>. Same data, more leverage at every layer.
 </div>
 
 </section>
@@ -344,7 +335,7 @@ Each one answers a question the previous can't. The ontology answers <em>what sh
 
 <div class="callout">
 <span class="label">key idea</span>
-The ontology is the <strong>contract every other layer is bound to</strong>. Adding a class or predicate is a four-place edit: <code>ontology.md</code> (document it), <code>graph.json</code> (use it), the JS reasoner/viewer (consume it), and <code>neo4j/import.py</code> + <code>cypher.md</code> (consume it). Don't add unused predicates.
+The ontology is the <strong>contract every other layer is bound to</strong>. Adding a class or predicate is a three-place edit: <code>ontology.md</code> (document it + why), <code>graph.json</code> (use it), and <code>neo4j/import.py</code> + <code>cypher.md</code> (consume it). Don't add unused predicates.
 </div>
 
 </section>
@@ -364,7 +355,7 @@ The ontology is the <strong>contract every other layer is bound to</strong>. Add
     { "id": "sch_247",  "label": "24x7",      "class": "Schedule" },
     { "id": "d_lab",    "label": "Lab Door",  "class": "Door" },
     { "id": "z_lab",    "label": "Lab",       "class": "Zone" }
-    /* ... 15 more nodes ... */
+    /* ... 16 more nodes ... */
   ],
   "edges": [
     { "from": "alice",   "to": "grp_emp", "predicate": "member_of",
@@ -383,26 +374,15 @@ The ontology is the <strong>contract every other layer is bound to</strong>. Add
 <p>Three people, intentionally chosen so worked examples have a clean shape:</p>
 
 <table>
-  <tr><th>Person</th><th>Groups</th><th>Doors they can open</th><th>Why interesting</th></tr>
+  <tr><th>Person</th><th>Groups</th><th>Doors</th><th>Why interesting</th></tr>
   <tr><td>Alice</td><td>Employees (closed 2026-05-10)</td><td>Front, Lab</td><td>Demonstrates revocation — was active, now closed</td></tr>
   <tr><td>Bob</td><td>ContractorsDay × 2 (one closed, one open)</td><td>Front</td><td>Demonstrates re-instatement — two tenures with a gap</td></tr>
   <tr><td>Carol</td><td>Employees + Admins</td><td>Front, Lab, Server Room</td><td>Demonstrates multi-group access; promoted on 2026-03-01</td></tr>
 </table>
 
-<div class="callout">
-<span class="label">design note</span>
-Edges can have optional <code>valid_from</code> / <code>valid_to</code> properties — the temporal model. We'll come back to this in Layer 6. For now: edges with no validity are treated as <em>always valid</em>; edges with <code>valid_to</code> set are <em>closed</em>.
-</div>
+<h3>The decision rule, in words</h3>
 
-</section>
-
-<!-- ============================== 4. REASONER ============================== -->
-<section id="reasoner">
-<h2>4 · Layer 3 — Closed-form reasoner</h2>
-
-<p>The PACS decision in 80 lines of plain JavaScript. <code>canAccess(graph, personId, doorId, atTime)</code> walks the graph and returns whether to grant access — plus the path that justified it, or the reason it failed.</p>
-
-<h3>The rule, in words</h3>
+<p>The PACS authorization rule has the same shape no matter which layer expresses it:</p>
 
 <pre class="diagram">
 GRANT iff there exists an AccessGroup G such that:
@@ -415,140 +395,20 @@ GRANT iff there exists an AccessGroup G such that:
 Everything else is DENY.
 </pre>
 
-<h3>The core traversal</h3>
+<p>Four conditions joined by AND. The first three are structural (paths through edges). The fourth is a <strong>side condition</strong> over context (the current time). This composition — topology + side condition — is the canonical shape of every interesting question in this project. Layer 3 expresses it in Cypher; Layer 4 generalizes it temporally; Layer 5 has an LLM compose it.</p>
 
-<div class="filelabel">reasoner.js (the inner loop)</div>
-<pre><code class="language-javascript">export function canAccess(graph, personId, doorId, atTime) {
-  const { neighbors } = buildIndex(graph);
-
-  // For every group the person is in, check whether that group
-  // grants this door AND its schedule covers `atTime`.
-  for (const groupId of neighbors(personId, "member_of")) {
-    const doors = neighbors(groupId, "grants_access_to");
-    if (!doors.includes(doorId)) continue;
-
-    for (const schedId of neighbors(groupId, "active_during")) {
-      if (scheduleCovers(schedId, atTime)) {
-        return {
-          decision: "grant",
-          path:  [personId, groupId, doorId, schedId],
-          edges: [
-            { from: personId, to: groupId, predicate: "member_of" },
-            { from: groupId,  to: doorId,  predicate: "grants_access_to" },
-            { from: groupId,  to: schedId, predicate: "active_during" }
-          ],
-          reason: `via group "${groupId}" on schedule "${schedId}"`
-        };
-      }
-    }
-  }
-  /* ... diagnostic-deny logic below ... */
-}</code></pre>
-
-<h3>Two opinions baked in</h3>
-
-<ul>
-  <li><strong>Fail-closed.</strong> Unknown schedule → deny. Safety default. Never flip this to fail-open.</li>
-  <li><strong>Diagnostic deny.</strong> Instead of returning a bare <code>false</code>, the reasoner runs three checks to identify <em>which condition failed</em>:</li>
-</ul>
-
-<div class="filelabel">reasoner.js (diagnostic deny)</div>
-<pre><code class="language-javascript">// 1. Is the person in any group?
-const groups = neighbors(personId, "member_of");
-if (groups.length === 0) {
-  return { decision: "deny", reason: "person is in no AccessGroup" };
-}
-
-// 2. Of those groups, does any grant this door?
-const granting = groups.filter(g =>
-  neighbors(g, "grants_access_to").includes(doorId));
-if (granting.length === 0) {
-  return { decision: "deny", reason: "no group of this person grants this door" };
-}
-
-// 3. Otherwise, no covering schedule.
-return {
-  decision: "deny",
-  reason: `group(s) ${granting.join(", ")} grant the door, but no schedule covers this time`
-};</code></pre>
-
-<div class="callout good">
-<span class="label">teaching point</span>
-This is the <strong>topology + side condition</strong> pattern in its purest form. The path existing is necessary but not sufficient; the schedule check (a context-dependent side condition over <code>atTime</code>) is what turns a graph from a data structure into a policy engine.
+<div class="callout">
+<span class="label">design note</span>
+Edges can have optional <code>valid_from</code> / <code>valid_to</code> properties — the temporal model. We'll come back to this in Layer 4. For now: edges with no validity are treated as <em>always valid</em>; edges with <code>valid_to</code> set are <em>closed</em>.
 </div>
 
 </section>
 
-<!-- ============================== 5. VIEWER ============================== -->
-<section id="viewer">
-<h2>5 · Layer 4 — Visualization (<code>index.html</code>)</h2>
-
-<p>A single HTML file that fetches <code>graph.json</code>, renders it with <a href="https://visjs.github.io/vis-network/docs/network/">vis-network</a>, and wires up the reasoner from Layer 3 to an interactive panel.</p>
-
-<h3>Per-class visual identity</h3>
-
-<p>Generic blobs are unreadable. Every class gets a distinct color and shape so the graph is legible at a glance:</p>
-
-<div class="filelabel">index.html (color/shape tables)</div>
-<pre><code class="language-javascript">const CLASS_COLORS = {
-  Person:      "#58a6ff",   // blue
-  Credential:  "#bc8cff",   // purple
-  AccessGroup: "#f0c674",   // amber
-  Schedule:    "#8b949e",   // grey
-  Reader:      "#ff9e64",   // orange
-  Door:        "#f47067",   // red
-  Zone:        "#56d364",   // green
-  Controller:  "#79c0ff"    // pale blue
-};
-
-const CLASS_SHAPES = {
-  Person:      "dot",
-  Credential:  "diamond",
-  AccessGroup: "hexagon",
-  Schedule:    "triangle",
-  Reader:      "square",
-  Door:        "box",
-  Zone:        "ellipse",
-  Controller:  "database"
-};</code></pre>
-
-<h3>Wiring the reasoner to the UI</h3>
-
-<p>When you press <em>Decide</em>, the page calls <code>canAccess</code>, prints the verdict, and highlights the justifying chain on the graph:</p>
-
-<div class="filelabel">index.html (decide handler)</div>
-<pre><code class="language-javascript">document.getElementById("decide").addEventListener("click", () => {
-  const personId = document.getElementById("sel-person").value;
-  const doorId   = document.getElementById("sel-door").value;
-  const t        = new Date(document.getElementById("sel-time").value);
-  const result   = canAccess(data, personId, doorId, t);
-
-  clearHighlight();
-  const ok = result.decision === "grant";
-  if (ok) highlight(result.path, result.edges, true);
-
-  const v = document.getElementById("verdict");
-  v.className = ok ? "grant" : "deny";
-  v.innerHTML =
-    `&lt;span class="tag"&gt;${ok ? "GRANT" : "DENY"}&lt;/span&gt; — ${personLabel} → ${doorLabel}` +
-    `&lt;div class="why"&gt;${result.reason}&lt;/div&gt;`;
-});</code></pre>
-
-<div class="callout warn">
-<span class="label">CSS gotcha (don't regress)</span>
-The layout depends on two CSS rules that look incidental but aren't:
-<pre style="margin: 8px 0;"><code class="language-css">html, body { height: 100vh; overflow: hidden; }
-main       { grid-template-rows: minmax(0, 1fr); }</code></pre>
-Without <code>grid-template-rows: minmax(0, 1fr)</code>, the side panel's scrollable content drives the row height past the viewport. The canvas grows with it, and <code>network.fit()</code> centers the view in the offscreen middle — <em>blank screen, no errors</em>. We debugged this once; don't undo it.
-</div>
-
-</section>
-
-<!-- ============================== 6. NEO4J ============================== -->
+<!-- ============================== 4. NEO4J ============================== -->
 <section id="neo4j">
-<h2>6 · Layer 5 — Neo4j (real graph database)</h2>
+<h2>4 · Layer 3 — Neo4j (real graph database)</h2>
 
-<p>The JS reasoner answers <em>one</em> question shape. Cypher in Neo4j lets you ask anything you can compose. Same model, vastly more leverage.</p>
+<p>Cypher in Neo4j lets you compose <em>any</em> question, not just the access decision. Same model, vastly more leverage.</p>
 
 <h3>Boot the database</h3>
 
@@ -600,11 +460,11 @@ for pred, rows in by_pred.items():
 MERGE would collapse two edges between the same nodes into one. Bob has <em>two</em> <code>member_of</code> edges to ContractorsDay — one closed, one open — because he was re-instated. MERGE would lose the gap. CREATE preserves it. Safe because <code>import.py</code> wipes the DB first; idempotency is preserved that way.
 </div>
 
-<h3>The reasoner, in Cypher</h3>
+<h3>The decision rule, in Cypher</h3>
 
-<p>The <em>entire</em> <code>canAccess</code> from Layer 3, expressed in one query:</p>
+<p>The four-edge rule from Layer 2, expressed as one query:</p>
 
-<div class="filelabel">Cypher — equivalent of reasoner.js::canAccess</div>
+<div class="filelabel">Cypher — the canonical access decision</div>
 <pre><code class="language-sql">WITH datetime() AS now, 'alice' AS person_id, 'd_lab' AS door_id
 MATCH (p:Person {id: person_id})-[:member_of]-&gt;(g:AccessGroup)
                                 -[:grants_access_to]-&gt;(d:Door {id: door_id})
@@ -624,16 +484,31 @@ RETURN p.label AS person, g.label AS via_group, d.label AS door;</code></pre>
   <li><strong>Cypher's temporal types.</strong> <code>date(x).dayOfWeek</code>, <code>time(x).hour</code> — first-class, ISO-8601 weekdays (Mon=1..Sun=7).</li>
 </ol>
 
+<h3>Side-condition flavors you can compose in Cypher</h3>
+
+<table>
+  <tr><th>Flavor</th><th>Example use</th></tr>
+  <tr><td>Temporal</td><td>schedule covers a given moment</td></tr>
+  <tr><td>Property</td><td><code>g.id = 'grp_emp'</code></td></tr>
+  <tr><td>Existence</td><td><code>WHERE EXISTS { ... }</code></td></tr>
+  <tr><td>Cardinality</td><td><code>count(g) &gt; 1</code> — "people in more than one group"</td></tr>
+  <tr><td>Disjunction</td><td>door protects either Zone X or Zone Y</td></tr>
+  <tr><td>Negation</td><td><code>NOT EXISTS { ... }</code> — integrity checks</td></tr>
+  <tr><td>Variable-length path</td><td><code>[*1..6]</code> — reachability</td></tr>
+</table>
+
+<p>See <code>neo4j/cypher.md</code> for a worked example of each.</p>
+
 <div class="callout good">
 <span class="label">same data, different power</span>
-The JS reasoner can <em>only</em> answer "grant or deny?". Cypher lets you ask: "Who is in more than one group?" "Which controllers manage readers that control no door?" "Show me the path from this credential to this zone." Same graph, infinitely more questions.
+The pattern stays the same — structural match + side condition(s) — but the <em>question</em> can be anything. "Who is in more than one group?" "Which controllers manage readers that control no door?" "Show me the path from this credential to this zone." Same graph, infinitely more questions.
 </div>
 
 </section>
 
-<!-- ============================== 7. TEMPORAL ============================== -->
+<!-- ============================== 5. TEMPORAL ============================== -->
 <section id="temporal">
-<h2>7 · Layer 6 — Temporal model</h2>
+<h2>5 · Layer 4 — Temporal model</h2>
 
 <p>A snapshot graph can't answer the auditor's classic question: <em>"Who had access at 2 AM on March 14th?"</em> If revocation destroys the edge, the prior state is gone. The temporal model is the fix.</p>
 
@@ -706,85 +581,247 @@ When Bob returned, he got Badge-004 (a new <code>Credential</code> node), not a 
 
 </section>
 
-<!-- ============================== 8. AGENT ============================== -->
+<!-- ============================== 6. AGENT ============================== -->
 <section id="agent">
-<h2>8 · Layer 7 — GraphRAG agent</h2>
+<h2>6 · Layer 5 — GraphRAG agent</h2>
 
-<p>The agent turns English questions into Cypher, executes them, and renders prose answers. The architecture is dictated by one safety property: <strong>the LLM never sees the raw data while answering the user's question</strong>.</p>
+<p>The agent turns English questions into Cypher, executes them, and renders prose answers. The architecture is dictated by one safety property: <strong>the LLM never sees the raw data while answering the user's question</strong>. The rest of this section is a deep dive — every named piece, every parameter, every "why this way."</p>
 
-<h3>The two-call pattern</h3>
+<h3 id="agent-skeleton">6.1 · Skeleton &amp; entry point</h3>
+
+<p>When you run <code>python3 agent/agent.py</code>, Python jumps to the bottom of the file:</p>
+
+<pre><code class="language-python">if __name__ == "__main__":
+    sys.exit(repl())</code></pre>
+
+<p><code>repl()</code> is the entire program. Everything else in the file is <em>machinery</em> that <code>repl()</code> calls. Here's the skeleton with print-formatting stripped:</p>
+
+<div class="filelabel">agent/agent.py (the bones of repl)</div>
+<pre><code class="language-python">def repl() -> int:
+    # 0. Preflight
+    today          = datetime.now().date().isoformat()
+    client         = anthropic.Anthropic()
+    planner_system = prompts.build_planner_system(prompts.read_ontology(REPO_ROOT))
+    driver         = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    driver.verify_connectivity()
+
+    while True:
+        question = input("? ").strip()
+        if not question:        continue
+        if question == "exit":  break
+
+        # 1. Plan       (LLM call #1)
+        plan_text = call_planner(client, planner_system, question, today)
+        cypher    = extract_cypher(plan_text)
+
+        # 2. Safety
+        if reason := safety_check(cypher):
+            print(f"REJECTED — {reason}"); continue
+
+        # 3. Execute    (Neo4j)
+        rows = run_cypher(driver, cypher)
+
+        # 4. Render     (LLM call #2)
+        answer = call_renderer(client, question, cypher, rows)
+
+        # 5. Save
+        save_transcript(question, cypher, rows, answer)
+
+    driver.close()
+    return 0</code></pre>
+
+<p>Three things to notice before we go deeper:</p>
+
+<ul>
+  <li><strong>Setup once, loop forever.</strong> <code>planner_system</code> is built once. The Anthropic client and Neo4j driver are created once and reused. That's a prerequisite for prompt caching to work (§6.7).</li>
+  <li><strong>Five named steps, ordered, no skipping.</strong> Plan → Safety → Execute → Render → Save. Safety is between plan and execute — a gate, not an afterthought.</li>
+  <li><strong>Errors don't crash the loop.</strong> Each LLM call and the Neo4j call sit inside try/except in the real code; on error the loop <code>continue</code>s so one bad question doesn't kill the session.</li>
+</ul>
+
+<h3 id="agent-prompts">6.2 · Prompts: what's stable, what's volatile</h3>
+
+<p><code>agent/prompts.py</code> has two halves:</p>
 
 <pre class="diagram">
-  user question
-       │
-       ▼
-  ┌───────────────────────┐
-  │  Claude #1 — Planner  │ ◄── system prompt: ontology.md
-  │                       │
-  │  sees:  schema only   │
-  │  emits: ONE Cypher    │
-  └───────────────────────┘
-       │
-       ▼
-   cypher string
-       │
-       ▼
-  ┌───────────────────────┐
-  │  Safety regex gate    │  rejects DELETE/MERGE/SET/CREATE/...
-  └───────────────────────┘
-       │ (read-only verbs only)
-       ▼
-  ┌───────────────────────┐
-  │  Neo4j session        │  default_access_mode="r"
-  │                       │  (driver-level read enforcement)
-  └───────────────────────┘
-       │
-       ▼
-    rows (JSON)
-       │
-       ▼
-  ┌───────────────────────┐
-  │  Claude #2 — Renderer │ ◄── system prompt: stable
-  │                       │
-  │  sees:  question +    │
-  │         cypher + rows │
-  │  emits: prose answer  │
-  └───────────────────────┘
-       │
-       ▼
-  user sees: plan, rows, answer
-  saved to:  agent/transcripts/&lt;ts&gt;/
+prompts.py
+├── PLANNER_INTRO        ◄── string constant: role + output format
+├── PLANNER_OUTRO        ◄── string constant: ontology-adjacent details + style notes
+├── RENDERER_SYSTEM      ◄── string constant: the entire renderer prompt
+├── build_planner_system(ontology_text) → str     # composes the planner prompt
+└── read_ontology(repo_root)            → str     # reads ontology.md
 </pre>
 
-<h3>Why two separate calls, not one</h3>
+<p>The planner system prompt has a specific structure:</p>
 
-<p>If a single LLM saw both the question and the rows, it could "blend" — reinterpret rows to match what it expected. Keeping the calls separate enforces a hard property: <strong>the renderer trusts the rows</strong>. It can't compose new queries; it can only describe what's there.</p>
+<pre class="diagram">
+  PLANNER_INTRO  +  ontology.md  +  PLANNER_OUTRO
+  ─────────────    ─────────────    ─────────────
+  stable           stable per       stable
+  (project life)   session          (project life)
+</pre>
 
-<h3>The planner call</h3>
+<p><strong>All three parts are stable across questions.</strong> That's the cache property. The planner system prompt is byte-for-byte identical from question 1 to question 100 within a session.</p>
 
-<div class="filelabel">agent/agent.py (planner)</div>
+<p>What's volatile — today's date, the question itself — goes in the <strong>user message</strong>, not the system prompt. That's the rule: anything that varies per request must live below the last <code>cache_control</code> breakpoint.</p>
+
+<h4>PLANNER_INTRO — role and output contract</h4>
+
+<div class="filelabel">agent/prompts.py</div>
+<pre><code class="language-python">PLANNER_INTRO = """\
+You are a read-only Cypher planner for the PACS knowledge graph.
+
+Your job: given a question in English, output exactly ONE Cypher query
+that answers it against the schema below. Nothing else.
+
+# Output format
+
+Return ONLY the Cypher query, wrapped in a ```cypher fenced code block.
+No prose, no explanation, no "Here's the query:" preamble. ...
+The query MUST be read-only ...
+Do NOT use any of: CREATE, MERGE, DELETE, DETACH, SET, REMOVE, DROP,
+LOAD CSV, CALL, FOREACH.
+
+# The PACS schema
+"""</code></pre>
+
+<p>Three jobs:</p>
+
+<ol>
+  <li><strong>Role assignment.</strong> A narrow role ("plan one query") produces tighter outputs than a broad one.</li>
+  <li><strong>Output contract.</strong> "Wrap in a <code>```cypher</code> block." This is what makes the regex extractor reliable.</li>
+  <li><strong>Forbidden verbs declared upfront.</strong> Same list as the safety gate — but having the LLM know in advance means most rejections never happen.</li>
+</ol>
+
+<h4>PLANNER_OUTRO — everything the schema alone doesn't tell you</h4>
+
+<p>The intro tells the planner <em>what</em> to do. The outro fills in what <code>ontology.md</code> alone leaves out:</p>
+
+<table>
+  <tr><th>Block</th><th>What it teaches</th></tr>
+  <tr><td>Schedule properties</td><td>Schedule nodes have <code>weekdays</code>, <code>start_hour</code>, <code>end_hour</code> — set by <code>import.py</code>, not in the ontology proper</td></tr>
+  <tr><td>Temporal model</td><td>Which predicates carry validity windows, plus the live-at-<code>$when</code> filter <em>verbatim</em>, plus the rule "don't add the filter when asking about history"</td></tr>
+  <tr><td>Date function reference</td><td>A short reference card for <code>date()</code>, <code>datetime()</code>, <code>duration.inDays()</code>, <code>coalesce()</code></td></tr>
+  <tr><td>Style notes &amp; gotchas</td><td>"Use DISTINCT when joining multiple temporal edges," "TODAY=YYYY-MM-DD arrives in the user message," "<code>holds</code> points Person→Credential so reverse the arrow if you start at Credential"</td></tr>
+</table>
+
+<p>Each line in that last block came from a real bug. The DISTINCT rule was added because the planner would otherwise duplicate Carol's row. The arrow-direction note came from a debug session. <strong>A system prompt evolves like this: bugs become rules. Every line earns its keep.</strong></p>
+
+<h4>RENDERER_SYSTEM — the prose layer</h4>
+
+<div class="filelabel">agent/prompts.py</div>
+<pre><code class="language-python">RENDERER_SYSTEM = """\
+You translate Neo4j Cypher query results into clear English answers
+for a security/audit operator working with a PACS knowledge graph.
+
+# What you receive (in the user message)
+- The user's original question.
+- The Cypher query that was run (for transparency only).
+- The rows it returned, as JSON.
+
+# How to answer
+- 2-4 sentences. Plain English. Direct.
+- If the rows are empty, say so plainly AND explain what that means in
+  context. "No one had access. (Empty result confirms the assertion holds.)"
+- If a row contains a date range, mention the dates explicitly when
+  they're material to the answer.
+- If multiple rows have the same person/entity with different time
+  windows (e.g. re-instatement), call that out.
+- Do NOT invent information that isn't in the rows.
+- Do NOT hedge or add disclaimers. The rows are ground truth.
+
+# Tone
+Confident, concise, audit-grade. You are not a chatbot; you are a
+reporting layer over a deterministic query.
+"""</code></pre>
+
+<p>The renderer system prompt is also stable; only the user message varies per call. The three rules that matter most:</p>
+
+<ul>
+  <li><strong>Empty-result rule.</strong> In Cypher, empty is often the <em>correct</em> answer. Without this rule the renderer would hedge.</li>
+  <li><strong>Anti-hallucination rule.</strong> "Do NOT invent information that isn't in the rows." The renderer is a <em>reporting layer over a deterministic query</em>. It can't speculate.</li>
+  <li><strong>Tone calibration.</strong> "Audit-grade" — confident and dateful, not chatbot-y.</li>
+</ul>
+
+<h4>The composition function</h4>
+
+<div class="filelabel">agent/prompts.py</div>
+<pre><code class="language-python">def build_planner_system(ontology_text: str) -> str:
+    """Compose the planner system prompt with the live ontology contents.
+
+    Keep this function pure — the same `ontology_text` must produce the
+    same bytes every call so prompt caching stays warm.
+    """
+    return PLANNER_INTRO + ontology_text + PLANNER_OUTRO
+
+
+def read_ontology(repo_root: Path) -> str:
+    """Read ontology.md and strip trailing whitespace for cache stability."""
+    text = (repo_root / "ontology.md").read_text(encoding="utf-8")
+    return text.rstrip() + "\n"</code></pre>
+
+<p>Two non-obvious choices in <code>read_ontology</code>:</p>
+
+<ul>
+  <li><strong><code>encoding="utf-8"</code> is explicit</strong> — same bytes regardless of platform locale.</li>
+  <li><strong><code>rstrip() + "\n"</code> normalizes the trailing newline</strong> — if a different editor saved the file with/without a trailing newline, the cache prefix would shift by a single byte and invalidate everything.</li>
+</ul>
+
+<h3 id="agent-planner">6.3 · The planner call</h3>
+
+<div class="filelabel">agent/agent.py</div>
 <pre><code class="language-python">def call_planner(client, planner_system, question, today):
     user_msg = f"TODAY={today}\n\nQuestion: {question}"
     response = client.messages.create(
-        model="claude-opus-4-7",
-        max_tokens=16000,
-        thinking={"type": "adaptive"},
-        output_config={"effort": "high"},
+        model="claude-opus-4-7",          # ← latest Opus
+        max_tokens=16000,                 # ← generous ceiling
+        thinking={"type": "adaptive"},    # ← model chooses when to think
+        output_config={"effort": "high"}, # ← thoroughness vs cost knob
         system=[{
             "type": "text",
             "text": planner_system,
-            # Stable system prompt → caches across questions. Volatile
-            # bits (today, the question) live in the user message so the
-            # cache prefix never shifts.
-            "cache_control": {"type": "ephemeral"},
+            "cache_control": {"type": "ephemeral"},   # ← cache breakpoint
         }],
         messages=[{"role": "user", "content": user_msg}],
     )
     return "".join(b.text for b in response.content if b.type == "text")</code></pre>
 
-<h3>The safety gate</h3>
+<p>Five things to understand:</p>
 
-<div class="filelabel">agent/agent.py (forbidden verbs)</div>
+<ol>
+  <li><strong>The user message holds the volatile context.</strong> Today's date and the question are the only parts that vary. They live in the user message, never in the system prompt — that's what keeps the cache prefix stable.</li>
+
+  <li><strong><code>thinking={"type": "adaptive"}</code></strong> — the model decides when to think internally. Simple questions skip it; "find the gap between Bob's two stints" gets thinking. You pay only for what's used.</li>
+
+  <li><strong><code>output_config={"effort": "high"}</code></strong> — controls thoroughness. Default and sweet spot for intelligence-sensitive work on Opus 4.7.</li>
+
+  <li><strong><code>system</code> is an array of typed blocks.</strong> The simple form (<code>system="..."</code>) can't carry <code>cache_control</code>; the list form is the minimum way to mark something cacheable.</li>
+
+  <li><strong><code>cache_control: {"type": "ephemeral"}</code></strong> — the magic. Everything before this breakpoint becomes the cacheable prefix. We unpack the full picture in §6.7.</li>
+</ol>
+
+<p>The response-parsing line is doing real work:</p>
+
+<pre><code class="language-python">return "".join(b.text for b in response.content if b.type == "text")</code></pre>
+
+<p><code>response.content</code> is a list of content blocks. With adaptive thinking enabled, the response can also contain <code>thinking</code> blocks (text empty by default; opt in with <code>display: "summarized"</code> if you want them visible). We filter to text blocks and concatenate.</p>
+
+<h4>Extracting the Cypher from the response</h4>
+
+<div class="filelabel">agent/agent.py</div>
+<pre><code class="language-python">CYPHER_BLOCK = re.compile(r"```(?:cypher|cypher\s*)?\n?(.*?)```", flags=re.DOTALL)
+
+def extract_cypher(text: str) -> str:
+    """Pull a single Cypher block out of the planner's response."""
+    matches = CYPHER_BLOCK.findall(text)
+    if not matches:
+        return text.strip()   # fallback: maybe bare Cypher
+    return matches[0].strip()</code></pre>
+
+<p>The planner is told to emit fenced blocks and almost always complies. The fallback handles the case where it returns bare text instead. <code>re.DOTALL</code> makes <code>.</code> match newlines so multi-line Cypher captures cleanly.</p>
+
+<h3 id="agent-safety">6.4 · The safety gate</h3>
+
+<div class="filelabel">agent/agent.py</div>
 <pre><code class="language-python">FORBIDDEN = re.compile(
     r"\b(?:CREATE|MERGE|DELETE|DETACH|SET|REMOVE|DROP|LOAD\s+CSV|"
     r"CALL\s+(?!{)|FOREACH)\b",
@@ -792,82 +829,293 @@ When Bob returned, he got Badge-004 (a new <code>Credential</code> node), not a 
 )
 
 def safety_check(cypher: str) -> str | None:
+    """Return None if safe, else a human-readable reason."""
     if FORBIDDEN.search(cypher):
         match = FORBIDDEN.search(cypher).group(0)
         return f"query contains forbidden write keyword: {match!r}"
     return None</code></pre>
 
-<p>Belt-and-braces with the driver:</p>
+<p>Two non-obvious regex details:</p>
 
-<div class="filelabel">agent/agent.py (read-only session)</div>
+<ul>
+  <li><strong><code>\b ... \b</code></strong> — word boundaries. Without them, <code>CREATE</code> would match inside identifiers like <code>createdAt</code> or comments.</li>
+  <li><strong><code>CALL\s+(?!{)</code></strong> — negative lookahead. Cypher has two <code>CALL</code>s: <code>CALL apoc.do.delete(...)</code> invokes procedures (some write); <code>CALL { ... }</code> is a read-only sub-query. The <code>(?!{)</code> lets sub-query syntax through while rejecting procedure calls.</li>
+</ul>
+
+<p>The function returns <code>None</code> on success and a reason string on failure — a common Python idiom where <code>None</code> means "no problem found." The REPL caller uses <code>if reason := safety_check(cypher): print(...)</code> — the walrus operator captures the reason and tests its truthiness in one expression.</p>
+
+<h3 id="agent-executor">6.5 · The executor</h3>
+
+<div class="filelabel">agent/agent.py</div>
 <pre><code class="language-python">def run_cypher(driver, cypher):
-    # Even if the regex were bypassed, the driver refuses writes
-    # in a read-mode session. Defense in depth.
+    """Execute a Cypher query against a read-only session."""
     with driver.session(default_access_mode="r") as session:
         result = session.run(cypher)
         return [record.data() for record in result]</code></pre>
 
-<h3>The planner system prompt — built from the live ontology</h3>
+<p>Tiny function, three important details:</p>
 
-<div class="filelabel">agent/prompts.py (composition)</div>
-<pre><code class="language-python">def build_planner_system(ontology_text: str) -> str:
-    """Compose the planner system prompt with the live ontology contents.
-
-    Keep this pure — same `ontology_text` must produce the same bytes
-    every call so prompt caching stays warm.
-    """
-    return PLANNER_INTRO + ontology_text + PLANNER_OUTRO</code></pre>
-
-<p>The system prompt embeds <code>ontology.md</code> verbatim. The planner sees the contract, never the data. This is the schema-aware grounding that distinguishes GraphRAG from naive RAG: it doesn't search through chunks — it composes queries from a known schema.</p>
+<ul>
+  <li><strong><code>default_access_mode="r"</code></strong> — the driver tells Neo4j: "this session is read-only." If a write somehow slipped past the regex, Neo4j itself refuses the query. <strong>Defense in depth.</strong></li>
+  <li><strong><code>record.data()</code></strong> — flattens to a plain dict of primitives + dates. Neo4j records can hold Node objects, Relationship objects, paths — none of which JSON-serialize cleanly. <code>.data()</code> normalizes everything.</li>
+  <li><strong>List comprehension eager-loads.</strong> Fine for our toy graph; for a production graph you'd want pagination or a <code>LIMIT</code> clause.</li>
+</ul>
 
 <div class="callout good">
-<span class="label">prompt caching is load-bearing</span>
-The planner system prompt is hundreds of lines (intro + ontology + temporal model + style notes). Without caching, every question pays for sending all of it again. With <code>cache_control: {"type": "ephemeral"}</code>, subsequent questions are ~90% cheaper. The volatile bits (today's date, the user's question) live in the user message so the cached prefix never shifts.
+<span class="label">two safety properties, one architecture</span>
+The agent <em>cannot</em> mutate the graph for two independent reasons. (1) The regex gate rejects writes textually before they ever reach Neo4j. (2) The Neo4j session refuses writes by mode at the driver level. Either alone would suffice; both together is the right level of paranoia.
 </div>
 
-<h3>Transcripts — Phase 4 fuel</h3>
+<h3 id="agent-renderer">6.6 · The renderer call</h3>
 
-<p>Each question saves four files under <code>agent/transcripts/&lt;timestamp&gt;/</code>:</p>
+<div class="filelabel">agent/agent.py</div>
+<pre><code class="language-python">def call_renderer(client, question, cypher, rows):
+    user_msg = (
+        f"Question: {question}\n\n"
+        f"Cypher run:\n```cypher\n{cypher}\n```\n\n"
+        f"Rows returned ({len(rows)}):\n{json.dumps(rows, default=str, indent=2)}"
+    )
+    response = client.messages.create(
+        model="claude-opus-4-7",
+        max_tokens=16000,
+        thinking={"type": "adaptive"},
+        output_config={"effort": "high"},
+        system=[{
+            "type": "text",
+            "text": prompts.RENDERER_SYSTEM,
+            "cache_control": {"type": "ephemeral"},
+        }],
+        messages=[{"role": "user", "content": user_msg}],
+    )
+    return "".join(b.text for b in response.content if b.type == "text").strip()</code></pre>
+
+<p>Structurally identical to the planner call. What differs:</p>
+
+<ul>
+  <li>System prompt is <code>RENDERER_SYSTEM</code> (stable for caching too).</li>
+  <li>User message carries three pieces: question, the Cypher that ran, and the rows as JSON.</li>
+  <li><code>json.dumps(rows, default=str, indent=2)</code> — <code>default=str</code> handles Neo4j's <code>date</code> type by calling <code>str()</code> on it ("2026-04-15"). <code>indent=2</code> pretty-prints so the renderer can reason about row groupings.</li>
+</ul>
+
+<p>The <strong>safety property</strong> of this call is what the renderer <em>can't</em> see: the schema, the database connection, the planner prompt. It only sees the question, the Cypher that ran, and the rows. The Cypher is for transparency only; the renderer has no machinery to modify it or re-query.</p>
+
+<h3 id="agent-caching">6.7 · Prompt caching — how it works and why it's needed</h3>
+
+<p>Without caching, every question pays to re-transmit and re-process the same ~2000-token system prompt:</p>
 
 <pre class="diagram">
-  agent/transcripts/2026-05-24T14-32-07/
-  ├── question.txt    ← the English question
-  ├── plan.cypher     ← what the planner emitted
-  ├── rows.json       ← what Neo4j returned
-  └── answer.txt      ← what the renderer produced
+Q1:  system: 2000 tok  +  question: 30 tok  ──►  bill: 2030 tok input
+Q2:  system: 2000 tok  +  question: 30 tok  ──►  bill: 2030 tok input
+Q10: ...
+                                    Total billed: ~20,300 tokens
+                                    Of which redundant: ~18,000
 </pre>
 
-<p>These artifacts are the input to the deferred Phase 4: a head-to-head comparison against the same questions written in SQL. The point isn't "GraphRAG wins"; it's <em>here's the question shape that needs it, and here's what it still gets wrong</em>.</p>
+<p>The system prompt is byte-for-byte identical across all 10 calls. Caching turns redundant transmission into a near-free lookup.</p>
+
+<h4>How the cache works mechanically: prefix match</h4>
+
+<p>The Anthropic cache is a <strong>prefix match</strong>, not a content hash of the whole request. The request gets rendered in this fixed order:</p>
+
+<pre class="diagram">
+┌─────────┐  ┌──────────┐  ┌────────────┐
+│  tools  │  │  system  │  │  messages  │
+└─────────┘  └──────────┘  └────────────┘
+                  ▲
+        cache_control breakpoint goes here
+        means "cache everything up to AND including this point"
+</pre>
+
+<p>The breakpoint marks where the cacheable prefix ends. Anything before is hashed and matched against the cache; anything after is sent fresh every request.</p>
+
+<pre class="diagram">
+                    cacheable prefix                    volatile suffix
+        ┌──────────────────────────────────┐   ┌────────────────────┐
+Req 1:  │ system: PLANNER_INTRO + ontology │ │ │ user: "TODAY=...   │
+        │           + PLANNER_OUTRO        │   │       Question: …" │
+        │       [cache_control here]       │   │                    │
+        └──────────────────────────────────┘   └────────────────────┘
+                            │
+                            ▼
+                  CACHE WRITE on the first call
+                  (~125% of normal cost on these tokens)
+
+                    same exact bytes                    different bytes
+        ┌──────────────────────────────────┐   ┌────────────────────┐
+Req 2:  │ ...identical bytes...            │ │ │ user: "TODAY=...   │
+        │       [cache_control here]       │   │       Question: …" │
+        └──────────────────────────────────┘   └────────────────────┘
+                            │
+                            ▼
+                  CACHE READ — match!
+                  (~10% of normal cost on these tokens)
+</pre>
+
+<h4>Why prefix-match, not full content-match</h4>
+
+<p>LLMs process input <em>autoregressively</em>, left to right. The internal state the model accumulates over the first 2000 tokens is <em>identical</em> regardless of what question follows. Anthropic can stash that intermediate state on their servers, keyed by the prefix's hash, and load it instead of recomputing. <strong>One byte difference anywhere in the prefix → different cache key → no hit.</strong> No partial matches.</p>
+
+<h4>What it costs and saves</h4>
+
+<table>
+  <tr><th>Operation</th><th>Cost per 1M tokens (Opus 4.7)</th><th>Multiplier</th></tr>
+  <tr><td>Normal input</td><td>$5.00</td><td>1.0×</td></tr>
+  <tr><td>Cache <strong>write</strong> (first time)</td><td>$6.25</td><td>1.25×</td></tr>
+  <tr><td>Cache <strong>read</strong> (subsequent)</td><td>$0.50</td><td>0.10×</td></tr>
+  <tr><td>Normal output</td><td>$25.00</td><td>1.0×</td></tr>
+</table>
+
+<p><strong>The math for our agent:</strong> 10 questions, ~2000-token system prompt.</p>
+<ul>
+  <li>Without caching: 10 × 2000 × $5/M = <strong>$0.10</strong> on the system prompt alone.</li>
+  <li>With caching: 1 write (2000 × 1.25 = 2500) + 9 reads (2000 × 0.10 × 9 = 1800) = 4300 effective tokens × $5/M = <strong>$0.022</strong>.</li>
+  <li>Savings: <strong>~80% reduction</strong>. Break-even: after the 2nd request.</li>
+</ul>
+
+<h4>The 5-minute TTL</h4>
+
+<p><code>ephemeral</code> caches have a 5-minute time-to-live, refreshed on each hit. Interactive sessions stay hot because every hit resets the clock. There's a <code>{"type": "ephemeral", "ttl": "1h"}</code> option for batch processes that fire one question per minute. For our REPL the default is fine.</p>
+
+<h4>Silent invalidators — the bugs you can't see</h4>
+
+<p>The worst thing about prompt caching is that misuses don't <em>fail</em>. They just don't <em>cache</em>. Classic invalidators that look harmless:</p>
+
+<pre><code class="language-python"># BAD — every request gets a fresh timestamp in the prefix
+system = f"You are an assistant. Current time: {datetime.now()}"
+
+# BAD — every request gets a fresh request ID
+system = f"Request {uuid.uuid4()}: You are an assistant..."
+
+# BAD — dict iteration order isn't guaranteed across runs
+system = f"Schema:\n{json.dumps(schema_dict)}"   # JSON keys can reorder
+
+# BAD — different file encoding produces different bytes on Windows
+text = open("ontology.md").read()                # no encoding=, locale-dependent</code></pre>
+
+<p>Our <code>read_ontology()</code> and <code>build_planner_system()</code> defend against all of these — explicit encoding, normalized trailing newline, no clock or randomness in the composition.</p>
+
+<h4>How to verify caching is actually working</h4>
+
+<div class="filelabel">Verify with usage fields on the response</div>
+<pre><code class="language-python">response = client.messages.create(...)
+
+print(response.usage.input_tokens)                # uncached tokens (full price)
+print(response.usage.cache_creation_input_tokens) # tokens written to cache (1.25×)
+print(response.usage.cache_read_input_tokens)     # tokens served from cache (0.10×)</code></pre>
+
+<p>Expected pattern across a session:</p>
+
+<pre class="diagram">
+Q1:  input_tokens=30, cache_creation=2000, cache_read=0
+Q2:  input_tokens=30, cache_creation=0,    cache_read=2000
+Q3:  input_tokens=30, cache_creation=0,    cache_read=2000
+...
+</pre>
+
+<p>If <code>cache_read=0</code> on every question, a silent invalidator is at work. Audit: dynamic content in the system prompt, inconsistent file encoding, or 5-minute TTL gaps between calls.</p>
+
+<div class="callout good">
+<span class="label">the rule you can keep in your head</span>
+<strong>Stable content goes before the breakpoint; volatile content after.</strong> That's the entire design principle. Our <code>agent.py</code> follows it religiously: stable system prompt built from <code>PLANNER_INTRO + ontology + PLANNER_OUTRO</code>, volatile <code>TODAY=...</code> + question in the user message, <code>cache_control</code> exactly on the system block. Every design choice in <code>prompts.py</code> and <code>call_planner</code> exists to keep that prefix stable.
+</div>
+
+<h3 id="agent-transcripts">6.8 · Transcripts &amp; the REPL loop</h3>
+
+<div class="filelabel">agent/agent.py</div>
+<pre><code class="language-python">def save_transcript(question, cypher, rows, answer):
+    """Save a per-turn folder with the four artifacts."""
+    TRANSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
+    folder = TRANSCRIPT_DIR / datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    folder.mkdir(exist_ok=True)
+    (folder / "question.txt").write_text(question + "\n", encoding="utf-8")
+    (folder / "plan.cypher").write_text(cypher + "\n",   encoding="utf-8")
+    (folder / "rows.json"   ).write_text(json.dumps(rows, default=str, indent=2) + "\n", encoding="utf-8")
+    (folder / "answer.txt"  ).write_text(answer + "\n",  encoding="utf-8")
+    return folder</code></pre>
+
+<p>One folder per question, named with an ISO-timestamp slug. Four files because each artifact serves a different consumer:</p>
+
+<table>
+  <tr><th>File</th><th>Read by</th></tr>
+  <tr><td><code>question.txt</code></td><td>A human reviewing transcripts</td></tr>
+  <tr><td><code>plan.cypher</code></td><td>A future Phase 4 diff against the SQL-equivalent</td></tr>
+  <tr><td><code>rows.json</code></td><td>Anyone reproducing the answer offline</td></tr>
+  <tr><td><code>answer.txt</code></td><td>The "what did the user actually see" record</td></tr>
+</table>
+
+<p>The folder is the unit of replay. If a question gets a wrong answer, you can re-run the renderer against <code>rows.json</code> to test whether prompt tweaks improve things — <em>without</em> re-running the planner or hitting Neo4j.</p>
+
+<h4>The REPL with error handling</h4>
+
+<div class="filelabel">agent/agent.py (the loop, with try/except)</div>
+<pre><code class="language-python">while True:
+    try:
+        question = input(f"\n{CYAN}?{RESET} ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print(); break
+    if not question:                              continue
+    if question.lower() in ("exit","quit",":q"):  break
+
+    # 1. Plan
+    try:
+        plan_text = call_planner(client, planner_system, question, today)
+    except anthropic.APIError as e:
+        print(f"{RED}Planner failed: {e}{RESET}"); continue
+    cypher = extract_cypher(plan_text)
+
+    # 2. Safety
+    if reason := safety_check(cypher):
+        print(f"{RED}REJECTED — {reason}{RESET}"); continue
+
+    # 3. Execute
+    try:
+        rows = run_cypher(driver, cypher)
+    except Exception as e:
+        print(f"{RED}Neo4j error: {e}{RESET}")
+        save_transcript(question, cypher, [], f"[neo4j error] {e}")
+        continue
+
+    # 4. Render
+    try:
+        answer = call_renderer(client, question, cypher, rows)
+    except anthropic.APIError as e:
+        print(f"{RED}Renderer failed: {e}{RESET}"); continue
+
+    # 5. Save
+    save_transcript(question, cypher, rows, answer)</code></pre>
+
+<p>Structural rule: <strong><code>continue</code> on every failure.</strong> The REPL is interactive — a flake on one question shouldn't kill the session. The user rephrases and tries again.</p>
+
+<p>The one place we save <em>despite</em> a failure is Neo4j errors:</p>
+
+<pre><code class="language-python">save_transcript(question, cypher, [], f"[neo4j error] {e}")</code></pre>
+
+<p>We save the broken Cypher + the error message. That's a future Phase 4 finding: <em>the planner emitted Cypher that didn't execute</em>. We want to know about it. Other failure modes (rate limit, network) aren't pedagogically interesting.</p>
+
+<h3>What makes the agent safe — restated</h3>
+
+<table>
+  <tr><th>Property</th><th>Where enforced</th></tr>
+  <tr><td>The LLM never sees graph data while composing queries</td><td>Two-call architecture — planner reads ontology, never <code>graph.json</code></td></tr>
+  <tr><td>The LLM never composes queries while seeing data</td><td>Renderer can't re-query; the Cypher in its input is just for context</td></tr>
+  <tr><td>Write Cypher rejected before execution</td><td><code>safety_check()</code> regex</td></tr>
+  <tr><td>Write Cypher rejected by the database too</td><td><code>default_access_mode="r"</code> on the Neo4j session</td></tr>
+  <tr><td>Cache stability isn't accidentally broken</td><td><code>build_planner_system()</code> is pure; volatile data in user message</td></tr>
+  <tr><td>One bad question doesn't kill the session</td><td><code>try/except + continue</code> around every stage</td></tr>
+  <tr><td>Failures are auditable</td><td><code>save_transcript()</code> runs even on Neo4j errors</td></tr>
+</table>
+
+<p>That's the whole agent. ~280 lines, every one of them doing a specific job, with the safety properties physically separated from the LLM (in regex, in driver config, in code architecture) rather than relying on the LLM to behave well.</p>
 
 </section>
 
-<!-- ============================== 9. FLOW ============================== -->
+<!-- ============================== 7. FLOW ============================== -->
 <section id="flow">
-<h2>9 · End-to-end data flow</h2>
+<h2>7 · End-to-end data flow</h2>
 
-<p>Three different ways the same question gets answered, depending on which surface the user is pointed at.</p>
+<p>Two paths through the system, depending on which surface the user is pointed at.</p>
 
-<h3>Path A — Browser UI (closed-form, snapshot only)</h3>
-
-<pre class="diagram">
-  User picks (Alice, Lab Door, "Mon 10am")
-         │
-         ▼
-  index.html: button handler
-         │
-         ▼
-  reasoner.js::canAccess(graph, "alice", "d_lab", t)
-         │  (in-memory graph, no DB)
-         ▼
-  { decision: "grant",
-    path: ["alice", "grp_emp", "d_lab", "sch_247"],
-    reason: 'via group "grp_emp" on schedule "sch_247"' }
-         │
-         ▼
-  UI: green path highlighted on graph, verdict panel updates
-</pre>
-
-<h3>Path B — Neo4j Browser (Cypher, full history)</h3>
+<h3>Path A — Neo4j Browser (Cypher, full history)</h3>
 
 <pre class="diagram">
   User opens http://localhost:7474, pastes Cypher
@@ -885,7 +1133,7 @@ The planner system prompt is hundreds of lines (intro + ontology + temporal mode
   Browser renders Table tab or Graph tab
 </pre>
 
-<h3>Path C — GraphRAG agent (NL → Cypher → prose)</h3>
+<h3>Path B — GraphRAG agent (NL → Cypher → prose)</h3>
 
 <pre class="diagram">
   Terminal: python3 agent/agent.py
@@ -918,87 +1166,39 @@ The planner system prompt is hundreds of lines (intro + ontology + temporal mode
 
 </section>
 
-<!-- ============================== 10. INVARIANTS ============================== -->
+<!-- ============================== 8. INVARIANTS ============================== -->
 <section id="invariants">
-<h2>10 · Invariants that hold across the stack</h2>
-
-<p>These aren't enforced by tests (there are none). They're enforced by discipline and documented in <code>CLAUDE.md</code> so future sessions don't regress them.</p>
+<h2>8 · Invariants that hold across the stack</h2>
 
 <table>
   <tr><th>Invariant</th><th>Lives in</th><th>Why it matters</th></tr>
-  <tr>
-    <td><strong>Ontology is the contract</strong></td>
-    <td>ontology.md → graph.json → reasoner.js / index.html / import.py / cypher.md</td>
-    <td>Adding a predicate is a four-place edit. Top-down propagation is the discipline.</td>
-  </tr>
-  <tr>
-    <td><strong>Fail-closed on unknown schedules</strong></td>
-    <td><code>reasoner.js::scheduleCovers</code></td>
-    <td>Security default — if we don't recognise the schedule, deny.</td>
-  </tr>
-  <tr>
-    <td><strong>Diagnostic deny</strong></td>
-    <td><code>canAccess</code> + the agent renderer</td>
-    <td>Operators need to know <em>why</em> access failed, not just <em>that</em> it failed.</td>
-  </tr>
-  <tr>
-    <td><strong>Append-only on policy edges</strong></td>
-    <td>graph.json, import.py, cypher.md, scenarios.md</td>
-    <td>Revocation must preserve history. Never <code>DELETE</code>; close with <code>valid_to</code>.</td>
-  </tr>
-  <tr>
-    <td><strong>Live-at-$when filter pattern</strong></td>
-    <td>cypher.md §6, scenarios.md, agent planner prompt</td>
-    <td>Single foundational pattern for every audit-style query.</td>
-  </tr>
-  <tr>
-    <td><strong>Credentials are reissued, not reactivated</strong></td>
-    <td>graph.json (Bob → Badge-004), ontology.md</td>
-    <td>Matches real PACS security; credential ID has its own lifetime.</td>
-  </tr>
-  <tr>
-    <td><strong>Planner and renderer never overlap</strong></td>
-    <td>agent.py (two separate LLM calls)</td>
-    <td>The renderer can't compose queries; the planner can't see data.</td>
-  </tr>
-  <tr>
-    <td><strong>Read-only enforcement, two places</strong></td>
-    <td>agent.py regex + Neo4j session mode</td>
-    <td>Defense in depth. Either alone would suffice; both together is the right level of paranoia.</td>
-  </tr>
-  <tr>
-    <td><strong>Prompt caching prefix is stable</strong></td>
-    <td>agent.py + prompts.py</td>
-    <td>Today's date and the question go in the <em>user</em> message, not system. Don't add timestamps to the system prompt.</td>
-  </tr>
+  <tr><td><strong>Ontology is the contract</strong></td><td>ontology.md → graph.json → import.py / cypher.md</td><td>Adding a predicate is a three-place edit. Top-down propagation is the discipline.</td></tr>
+  <tr><td><strong>Fail-closed schedules</strong></td><td>import.py + cypher.md + planner prompt</td><td>Unknown schedule = deny. Security default.</td></tr>
+  <tr><td><strong>Append-only on policy edges</strong></td><td>graph.json, import.py, cypher.md</td><td>Revocation must preserve history. Never <code>DELETE</code>; close with <code>valid_to</code>.</td></tr>
+  <tr><td><strong>Live-at-$when filter pattern</strong></td><td>cypher.md §6, scenarios.md, planner prompt</td><td>Single foundational pattern for every audit-style query.</td></tr>
+  <tr><td><strong>Credentials are reissued, not reactivated</strong></td><td>graph.json (Bob → Badge-004), ontology.md</td><td>Matches real PACS security; credentials have their own lifetime.</td></tr>
+  <tr><td><strong>Planner and renderer never overlap</strong></td><td>agent.py (two separate LLM calls)</td><td>Renderer can't compose queries; planner can't see data.</td></tr>
+  <tr><td><strong>Read-only, two places</strong></td><td>agent.py regex + Neo4j session mode</td><td>Defense in depth.</td></tr>
+  <tr><td><strong>Prompt-cache prefix is stable</strong></td><td>agent.py + prompts.py</td><td>Today's date and the question live in the <em>user</em> message, not system. No clocks, UUIDs, or unsorted JSON in the system prompt.</td></tr>
 </table>
 
 </section>
 
-<!-- ============================== 11. NEXT ============================== -->
+<!-- ============================== 9. NEXT ============================== -->
 <section id="next">
-<h2>11 · Where to go next</h2>
+<h2>9 · Where to go next</h2>
 
-<h3>Deferred (Phase 4) — GraphRAG vs SQL</h3>
+<h3>Next phase — GraphRAG vs SQL</h3>
 
 <p>The most pedagogically valuable next step is the <strong>honest</strong> comparison. Plain RAG over markdown chunks is a strawman — PACS data never lives that way in reality. The real incumbent is a relational database with <code>valid_from</code> / <code>valid_to</code> columns on every junction table.</p>
 
-<p>The Phase 4 we'd actually want to build:</p>
+<p>What we'd build:</p>
 
 <ul>
-  <li>A Postgres or SQLite mirror with <code>cardholder</code>, <code>access_group_membership</code>, <code>access_level_assignment</code> tables</li>
-  <li>The same canonical questions written as both Cypher (via the GraphRAG agent) and SQL</li>
-  <li>An honest comparison: where SQL wins (well-known, mature tooling, performance), where it gets painful (re-instatement, gap detection, multi-temporal joins), and where it's a wash</li>
+  <li>A Postgres or SQLite mirror with <code>cardholder</code>, <code>access_group_membership</code>, <code>access_level_assignment</code> tables — same data, relational shape</li>
+  <li>The same canonical questions written as both Cypher (via the agent) and SQL</li>
+  <li>An honest analysis: where SQL is <em>better</em> (well-known, mature tooling, predictable performance), where it gets <em>painful</em> (re-instatement modelling, gap detection, multi-temporal joins), and where it's a wash</li>
 </ul>
-
-<h3>Deferred from Phase 2</h3>
-
-<table>
-  <tr><th>Item</th><th>Why deferred</th></tr>
-  <tr><td><code>:denylist</code> predicate</td><td>Defer until a scenario needs it</td></tr>
-  <tr><td>Node <code>status</code> history</td><td>That's full bitemporal — transaction time as a second axis</td></tr>
-  <tr><td>JS reasoner <code>asOf</code> parameter</td><td>UI change; would close the snapshot-vs-history divergence between the JS viewer and Neo4j</td></tr>
-</table>
 
 <h3>Pointers for tomorrow-you</h3>
 
@@ -1015,9 +1215,8 @@ The planner system prompt is hundreds of lines (intro + ontology + temporal mode
 </section>
 
 <footer>
-Generated from the repo at the state of commit <code>88a4d9a</code>.
-Serve with <code>python3 -m http.server &quot;${HTTP_PORT:-8000}&quot;</code> (port comes from <code>.env</code> if set; default 8000) and open <code>architecture.html</code> in your browser. Or browse on the
-<a href="https://github.com/mishitpatel/pacs-graph-101">GitHub repo</a>.
+Architecture walkthrough for <a href="https://github.com/mishitpatel/pacs-graph-101">pacs-graph-101</a>.
+Serve with <code>python3 -m http.server "${HTTP_PORT:-8000}"</code> (port from <code>.env</code> if set; default 8000) and open <code>architecture.html</code> in your browser.
 </footer>
 
 </main>

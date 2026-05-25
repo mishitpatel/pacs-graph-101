@@ -8,7 +8,7 @@ Mapping from our JSON to Neo4j:
 
 We also enrich Schedule nodes with explicit coverage properties so Cypher
 queries can evaluate the temporal check natively (instead of pushing the
-rule into application code, the way reasoner.js does):
+rule into application code, the way a hand-written reasoner would):
 
     sch_247:  weekdays=[1..7], start_hour=0,  end_hour=24
     sch_biz:  weekdays=[1..5], start_hour=9,  end_hour=17

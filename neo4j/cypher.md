@@ -20,7 +20,7 @@ MATCH (n)-[r]->(m) RETURN n, r, m;
 ```
 
 **Why:** structural existence only. No side conditions. Same picture as
-our vis-network view, but rendered by Neo4j.
+a Neo4j Browser rendering of the whole graph.
 
 ---
 
@@ -53,10 +53,10 @@ ORDER BY group;
 
 ---
 
-## 2. The closed-form reasoner, expressed in Cypher
+## 2. The closed-form access decision, expressed in Cypher
 
-This is the entire `canAccess` from `reasoner.js`, in one query. Compare
-side-by-side — same logic, different surface.
+The four-edge access rule (Person → group → door, AND group's schedule
+covers the moment) as one query:
 
 ```cypher
 // Can Alice open the Lab Door right now?

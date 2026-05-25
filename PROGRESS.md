@@ -5,9 +5,7 @@
 ## Concepts learned so far
 - [x] **Ontology** — classes + predicates + modeling notes (why each choice)
 - [x] **Knowledge graph** — instance data conforming to the ontology
-- [x] **Visualization** — vis-network, color/shape per class, predicate signatures
-- [x] **Closed-form reasoner** — graph traversal expressing the grant/deny decision
-- [x] **Topology vs side conditions** — the path existing ≠ the path being valid
+- [x] **Topology vs side conditions** — the path existing ≠ the path being valid (the rule has the same shape in any layer that expresses it)
 - [x] **Conjunctive queries** — multiple sub-patterns joined by AND
 - [x] **The three axes of conditions** — where they attach (node/edge/path/context), what they test, how they compose
 - [x] **Side-condition taxonomy** — temporal, state, threshold, cardinality, disjunction, negation, authorization, spatial, probabilistic
@@ -18,17 +16,19 @@
 - [x] **Temporal graph modeling** — validity windows on edges, append-only revocation, the live-at-`$when` filter pattern
 - [x] **Validity time vs transaction time** — what each axis answers and why we picked validity-only for now
 - [x] **Re-instatement pattern** — multiple edges of the same predicate between the same nodes with non-overlapping windows; credentials are re-issued, not reactivated
-- [ ] **GraphRAG agent** — explainer (`graphrag.md`) read; agent not built yet
+- [x] **GraphRAG agent** — two-call pattern (planner + renderer), safety gates, prompt caching, transcripts
+- [x] **Prompt caching** — prefix match, breakpoint placement, silent invalidators, cost picture
 
 ## Artifacts built
-- [x] `ontology.md` — schema
-- [x] `graph.json` — instance data (21 nodes, 23 edges)
-- [x] `index.html` — viewer + "Ask the reasoner" panel with date presets
-- [x] `reasoner.js` — closed-form `canAccess` traversal
+- [x] `ontology.md` — schema (with temporal-model section)
+- [x] `graph.json` — instance data with validity windows
 - [x] `graphrag.md` — open-form query explainer
-- [x] `README.md`, `CLAUDE.md`
 - [x] `docker-compose.yml` + `neo4j/import.py` — Neo4j layer
-- [x] `neo4j/cypher.md` — teaching ladder of queries
+- [x] `neo4j/cypher.md` — teaching ladder of queries (incl. §6 time-travel)
+- [x] `scenarios.md` — auditor-style worked questions
+- [x] `agent/agent.py` + `agent/prompts.py` — GraphRAG REPL
+- [x] `architecture.html` — full architectural walkthrough
+- [x] `README.md`, `CLAUDE.md`, `PROGRESS.md`
 
 ## Phase 1 — Neo4j (complete)
 - [x] Neo4j Community running locally via Docker
@@ -49,11 +49,10 @@
 - [x] `neo4j/import.py` carries validity windows into Neo4j as native `date` properties; `MERGE→CREATE` for relationships to allow multiple tenures
 - [x] `neo4j/cypher.md` §6 — nine time-travel query patterns (incl. tenure enumeration + gap detection)
 - [x] `scenarios.md` — nine auditor-style worked scenarios (incl. re-instatement audit)
-- [x] CLAUDE.md updated with the append-only invariant and JS/Neo4j divergence note
+- [x] CLAUDE.md updated with the append-only invariant
 - [x] Walked through §6 + scenarios.md in Neo4j Browser end-to-end
 - [ ] (Deferred) `:denylist` predicate — defer until needed by a concrete scenario
 - [ ] (Deferred) Node `status` history — full-bitemporal territory, out of Phase 2 scope
-- [ ] (Deferred) JS reasoner `asOf` parameter — UI changes out of Phase 2 scope per user decision
 
 ## Phase 3 — GraphRAG agent (complete)
 - [x] `agent/agent.py`: NL question → Claude (Opus 4.7, adaptive thinking) plans Cypher → execute → Claude renders prose
@@ -73,8 +72,8 @@
 
 ## Cold-start cheatsheet (for tomorrow)
 ```bash
-# JS viewer
-python3 -m http.server 8000        # → http://localhost:8000
+# Architecture walkthrough (static HTML)
+python3 -m http.server "${HTTP_PORT:-8000}"   # → http://localhost:8000/architecture.html
 
 # Neo4j
 docker compose up -d               # → http://localhost:7474 (neo4j / pacsgraph101)

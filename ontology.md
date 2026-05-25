@@ -113,16 +113,14 @@ closed forever.
 
 ### Consequence for consumers
 
-- **Neo4j Cypher queries**: read `valid_from` / `valid_to` directly. The
-  "as of" pattern above goes in every audit-style query. Be aware that
-  the same `(person, group)` pair may have multiple `member_of` edges;
+- **Neo4j Cypher queries** read `valid_from` / `valid_to` directly. The
+  "as of" pattern goes in every audit-style query. Be aware that the
+  same `(person, group)` pair may have multiple `member_of` edges;
   Cypher's `MATCH` will iterate all of them, so an "as-of" query
   naturally selects the right one without extra logic.
-- **JS reasoner (`reasoner.js`)**: snapshot-only — currently ignores
-  validity windows and treats every edge as live. This is a deliberate
-  divergence; the JS viewer answers "what is the current policy?" while
-  Neo4j answers "what was the policy then?" The JS layer may be extended
-  with an `asOf` parameter in a later phase. *Note: with re-instatement,
-  the JS reasoner sees both the closed and open edges and treats them
-  both as live — currently harmless because the grant decision only
-  needs* **one** *qualifying chain, but worth knowing.*
+- **The GraphRAG agent** (`agent/agent.py`) sees this same ontology in
+  its planner system prompt. The planner is taught the live-at-`$when`
+  filter explicitly in `agent/prompts.py::PLANNER_OUTRO`. When the user
+  asks a temporal question, the planner composes the filter into its
+  Cypher; for snapshot questions ("right now") it uses `date()` as the
+  pivot. The renderer never sees the schema — only the rows.
