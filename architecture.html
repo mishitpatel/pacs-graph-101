@@ -1,0 +1,1027 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PACS Graph 101 — Architecture Walkthrough</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>document.addEventListener("DOMContentLoaded", () => hljs.highlightAll());</script>
+<style>
+  :root {
+    --bg:     #0e1116;
+    --panel:  #161b22;
+    --panel2: #1c2128;
+    --ink:    #e6edf3;
+    --muted:  #8b949e;
+    --line:   #30363d;
+    --accent: #58a6ff;
+    --warn:   #f0c674;
+    --good:   #56d364;
+    --bad:    #f47067;
+    --purple: #bc8cff;
+    --orange: #ff9e64;
+
+    --max-w:    900px;
+    --gutter:   20px;
+    --radius:   6px;
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 15px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Layout: side TOC + main column on desktop; stacked on mobile. */
+  .wrap {
+    display: grid;
+    grid-template-columns: 240px minmax(0, var(--max-w));
+    gap: 40px;
+    max-width: calc(240px + 40px + var(--max-w));
+    margin: 0 auto;
+    padding: 40px var(--gutter);
+  }
+  @media (max-width: 900px) {
+    .wrap { grid-template-columns: 1fr; gap: 20px; padding: 20px var(--gutter); }
+    nav.toc { position: static; max-height: none; }
+  }
+
+  /* TOC */
+  nav.toc {
+    position: sticky;
+    top: 20px;
+    align-self: start;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    font-size: 13px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+  }
+  nav.toc h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin: 0 0 10px; font-weight: 600;
+  }
+  nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+  nav.toc li { counter-increment: toc; margin: 4px 0; }
+  nav.toc li::before {
+    content: counter(toc, decimal-leading-zero);
+    color: var(--muted); margin-right: 8px; font-family: var(--font-mono); font-size: 11px;
+  }
+  nav.toc a { color: var(--ink); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); }
+
+  /* Headings */
+  h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; line-height: 1.2; }
+  h2 {
+    font-size: 22px; margin: 56px 0 8px; padding-top: 16px;
+    border-top: 1px solid var(--line); letter-spacing: -0.01em;
+  }
+  h3 { font-size: 17px; margin: 28px 0 6px; color: var(--ink); }
+  h4 { font-size: 14px; margin: 18px 0 4px; color: var(--muted);
+       text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+
+  /* Section anchor styles */
+  section h2 { scroll-margin-top: 20px; }
+  section { padding-bottom: 8px; }
+
+  /* Header / hero */
+  header.hero {
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, var(--panel) 0%, var(--bg) 100%);
+    border-radius: var(--radius);
+    padding: 28px 28px 22px;
+    margin-bottom: 28px;
+  }
+  header.hero .tag {
+    display: inline-block;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted); margin-bottom: 8px;
+    border: 1px solid var(--line); padding: 2px 8px; border-radius: 12px;
+  }
+  header.hero .sub { color: var(--muted); margin: 6px 0 18px; font-size: 15px; }
+  header.hero blockquote {
+    margin: 0; padding: 12px 16px;
+    border-left: 3px solid var(--accent);
+    background: var(--panel2);
+    color: var(--ink);
+    font-style: italic;
+    border-radius: 0 var(--radius) var(--radius) 0;
+  }
+
+  /* Paragraphs and lists */
+  p { margin: 12px 0; }
+  ul, ol { padding-left: 22px; margin: 12px 0; }
+  li { margin: 4px 0; }
+  strong { color: var(--ink); }
+  em { color: var(--ink); }
+  a { color: var(--accent); }
+
+  /* Inline code */
+  code {
+    font-family: var(--font-mono); font-size: 0.92em;
+    background: var(--panel2); padding: 1px 6px; border-radius: 4px;
+    color: var(--ink);
+  }
+
+  /* Code blocks */
+  pre {
+    background: var(--panel) !important;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px !important;
+    overflow-x: auto;
+    font-size: 13px; line-height: 1.55;
+    margin: 14px 0;
+  }
+  pre code { background: transparent; padding: 0; font-size: inherit; }
+  .filelabel {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted); margin-bottom: -8px;
+    padding: 4px 12px;
+    border: 1px solid var(--line); border-bottom: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    background: var(--panel2);
+    display: inline-block;
+  }
+  .filelabel + pre { border-top-left-radius: 0; margin-top: 0; }
+
+  /* Diagrams */
+  pre.diagram {
+    background: var(--bg) !important;
+    border: 1px dashed var(--line);
+    color: var(--ink);
+    font-size: 12px;
+  }
+
+  /* Callouts */
+  .callout {
+    margin: 18px 0; padding: 12px 16px;
+    border-left: 3px solid var(--accent);
+    background: var(--panel);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: 14px;
+  }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.good { border-left-color: var(--good); }
+  .callout .label {
+    font-family: var(--font-mono); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin-right: 6px;
+  }
+  .callout.warn .label { color: var(--warn); }
+  .callout.good .label { color: var(--good); }
+
+  /* Tables */
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14px; }
+  th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px;
+       text-transform: uppercase; letter-spacing: 0.05em; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* Layer chips */
+  .chip {
+    display: inline-block; font-family: var(--font-mono); font-size: 11px;
+    padding: 2px 8px; border-radius: 12px; border: 1px solid var(--line);
+    color: var(--muted); margin-right: 4px;
+  }
+  .chip.js     { color: #f7df1e; border-color: rgba(247,223,30,0.3); }
+  .chip.py     { color: #58a6ff; border-color: rgba(88,166,255,0.3); }
+  .chip.cypher { color: #ff9e64; border-color: rgba(255,158,100,0.3); }
+  .chip.md     { color: var(--muted); }
+  .chip.json   { color: var(--purple); border-color: rgba(188,140,255,0.3); }
+  .chip.docker { color: #79c0ff; border-color: rgba(121,192,255,0.3); }
+
+  hr.dim {
+    border: 0; border-top: 1px solid var(--line); margin: 24px 0;
+  }
+
+  footer {
+    margin-top: 60px; padding-top: 20px;
+    border-top: 1px solid var(--line);
+    color: var(--muted); font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<!-- ============================== TOC ============================== -->
+<nav class="toc">
+  <h2>Walkthrough</h2>
+  <ol>
+    <li><a href="#overview">The big picture</a></li>
+    <li><a href="#ontology">Layer 1 — Ontology</a></li>
+    <li><a href="#instance">Layer 2 — Instance graph</a></li>
+    <li><a href="#reasoner">Layer 3 — Closed-form reasoner</a></li>
+    <li><a href="#viewer">Layer 4 — Visualization</a></li>
+    <li><a href="#neo4j">Layer 5 — Neo4j layer</a></li>
+    <li><a href="#temporal">Layer 6 — Temporal model</a></li>
+    <li><a href="#agent">Layer 7 — GraphRAG agent</a></li>
+    <li><a href="#flow">End-to-end data flow</a></li>
+    <li><a href="#invariants">Invariants across the stack</a></li>
+    <li><a href="#next">Where to go next</a></li>
+  </ol>
+</nav>
+
+<!-- ============================== MAIN ============================== -->
+<main>
+
+<header class="hero">
+  <span class="tag">architecture walkthrough</span>
+  <h1>PACS Graph 101 — how it all fits together</h1>
+  <p class="sub">A layer-by-layer tour of a pedagogical knowledge-graph project, from the schema at the top to the GraphRAG agent at the bottom.</p>
+  <blockquote>
+    A Physical Access Control System answers one question millions of times a day:
+    <strong>"Should this credential, at this reader, right now, open this door?"</strong>
+    Every layer in this codebase exists to answer that question — and to make it
+    answerable in increasingly powerful ways.
+  </blockquote>
+</header>
+
+<!-- ============================== 1. OVERVIEW ============================== -->
+<section id="overview">
+<h2>1 · The big picture</h2>
+
+<p>Seven layers, each one building on the last. None of them is large; the value is in how they compose.</p>
+
+<pre class="diagram">
+   ┌───────────────────────────────────────────────────────┐
+   │  L7 · GraphRAG agent       English question ──► prose │   agent/agent.py
+   │           ▲                                           │   agent/prompts.py
+   │           │                                           │
+   │  L6 · Temporal model       validity windows, history  │   graph.json (+enriched)
+   │           ▲                                           │   ontology.md (§temporal)
+   │           │                                           │
+   │  L5 · Neo4j + Cypher       real graph DB              │   docker-compose.yml
+   │           ▲                                           │   neo4j/import.py
+   │           │                                           │   neo4j/cypher.md
+   │  L4 · Visualization        vis-network viewer + UI    │   index.html
+   │           ▲                                           │
+   │           │                                           │
+   │  L3 · Closed-form reasoner canAccess() traversal      │   reasoner.js
+   │           ▲                                           │
+   │           │                                           │
+   │  L2 · Instance graph       21+ nodes, 25+ edges       │   graph.json
+   │           ▲                                           │
+   │           │                                           │
+   │  L1 · Ontology             8 classes, 7 predicates    │   ontology.md
+   └───────────────────────────────────────────────────────┘
+</pre>
+
+<h3>File layout</h3>
+
+<table>
+  <tr><th>Path</th><th>Layer</th><th>What it is</th></tr>
+  <tr><td><code>ontology.md</code></td><td><span class="chip md">md</span></td><td>The contract — classes + predicates + modeling rationale</td></tr>
+  <tr><td><code>graph.json</code></td><td><span class="chip json">json</span></td><td>Instance data conforming to the ontology, with temporal windows</td></tr>
+  <tr><td><code>reasoner.js</code></td><td><span class="chip js">js</span></td><td>Closed-form <code>canAccess(person, door, time)</code> graph traversal</td></tr>
+  <tr><td><code>index.html</code></td><td><span class="chip js">js</span></td><td>vis-network viewer + interactive "Ask the reasoner" panel</td></tr>
+  <tr><td><code>docker-compose.yml</code></td><td><span class="chip docker">docker</span></td><td>Neo4j Community service</td></tr>
+  <tr><td><code>neo4j/import.py</code></td><td><span class="chip py">py</span></td><td>Loads <code>graph.json</code> into Neo4j with date properties</td></tr>
+  <tr><td><code>neo4j/cypher.md</code></td><td><span class="chip cypher">cypher</span></td><td>Teaching ladder of Cypher queries</td></tr>
+  <tr><td><code>scenarios.md</code></td><td><span class="chip md">md</span></td><td>Auditor-style worked questions over the temporal graph</td></tr>
+  <tr><td><code>agent/agent.py</code></td><td><span class="chip py">py</span></td><td>GraphRAG REPL: NL → Cypher → rows → prose</td></tr>
+  <tr><td><code>agent/prompts.py</code></td><td><span class="chip py">py</span></td><td>Planner + renderer system prompts</td></tr>
+</table>
+
+<div class="callout">
+<span class="label">why these layers</span>
+Each one answers a question the previous can't. The ontology answers <em>what shape can things be</em>. The instance answers <em>what's actually there</em>. The reasoner answers <em>can X access Y</em>. Neo4j answers <em>any structural question you can compose</em>. The temporal model answers <em>what was true at time T</em>. The agent answers <em>any question in English</em>. Same data, more leverage at every layer.
+</div>
+
+</section>
+
+<!-- ============================== 2. ONTOLOGY ============================== -->
+<section id="ontology">
+<h2>2 · Layer 1 — Ontology (the contract)</h2>
+
+<p>The ontology is the <strong>schema</strong>: what kinds of things exist and what kinds of relationships can hold between them. It contains no data and makes no decisions. It tells you what shape the data takes and what shape the questions can take.</p>
+
+<h3>The eight classes</h3>
+
+<table>
+  <tr><th>Class</th><th>What it is</th></tr>
+  <tr><td><code>Person</code></td><td>A human — employee, contractor, visitor</td></tr>
+  <tr><td><code>Credential</code></td><td>A badge, PIN, mobile key, or biometric template</td></tr>
+  <tr><td><code>Reader</code></td><td>The device at a door that reads credentials</td></tr>
+  <tr><td><code>Door</code></td><td>A physical opening that can be locked / unlocked</td></tr>
+  <tr><td><code>Zone</code></td><td>A space behind one or more doors</td></tr>
+  <tr><td><code>AccessGroup</code></td><td>A named bundle of permissions (e.g. "Employees")</td></tr>
+  <tr><td><code>Schedule</code></td><td>A time window (24x7, BusinessHours)</td></tr>
+  <tr><td><code>Controller</code></td><td>The panel that makes grant / deny decisions for readers</td></tr>
+</table>
+
+<h3>The seven predicates (edge types)</h3>
+
+<table>
+  <tr><th>Predicate</th><th>Domain → Range</th><th>Meaning</th></tr>
+  <tr><td><code>holds</code></td><td>Person → Credential</td><td>This badge belongs to this person</td></tr>
+  <tr><td><code>member_of</code></td><td>Person → AccessGroup</td><td>This person is in this group</td></tr>
+  <tr><td><code>grants_access_to</code></td><td>AccessGroup → Door</td><td>This group can open this door</td></tr>
+  <tr><td><code>active_during</code></td><td>AccessGroup → Schedule</td><td>This group's access only applies then</td></tr>
+  <tr><td><code>controls</code></td><td>Reader → Door</td><td>This reader unlocks this door</td></tr>
+  <tr><td><code>protects</code></td><td>Door → Zone</td><td>Passing this door enters this zone</td></tr>
+  <tr><td><code>managed_by</code></td><td>Reader → Controller</td><td>This panel owns this reader</td></tr>
+</table>
+
+<h3>The modeling decisions worth noticing</h3>
+
+<ul>
+  <li><strong>AccessGroup is the join table.</strong> Without it you'd connect every Person directly to every Door — quadratic edges. Groups make access manageable.</li>
+  <li><strong>Schedule attaches to the group, not the person.</strong> The same person can be 24×7 via one group and 9-5 via another.</li>
+  <li><strong>Zone vs Door.</strong> A door is the boundary; a zone is the space. You grant access to a door (the action), but you reason about who's in a zone (the state).</li>
+</ul>
+
+<div class="callout">
+<span class="label">key idea</span>
+The ontology is the <strong>contract every other layer is bound to</strong>. Adding a class or predicate is a four-place edit: <code>ontology.md</code> (document it), <code>graph.json</code> (use it), the JS reasoner/viewer (consume it), and <code>neo4j/import.py</code> + <code>cypher.md</code> (consume it). Don't add unused predicates.
+</div>
+
+</section>
+
+<!-- ============================== 3. INSTANCE ============================== -->
+<section id="instance">
+<h2>3 · Layer 2 — Instance graph (the data)</h2>
+
+<p>Plain JSON. Two arrays: nodes and edges. Hand-crafted so worked examples land cleanly.</p>
+
+<div class="filelabel">graph.json (excerpt)</div>
+<pre><code class="language-json">{
+  "nodes": [
+    { "id": "alice",    "label": "Alice",     "class": "Person" },
+    { "id": "badge001", "label": "Badge-001", "class": "Credential" },
+    { "id": "grp_emp",  "label": "Employees", "class": "AccessGroup" },
+    { "id": "sch_247",  "label": "24x7",      "class": "Schedule" },
+    { "id": "d_lab",    "label": "Lab Door",  "class": "Door" },
+    { "id": "z_lab",    "label": "Lab",       "class": "Zone" }
+    /* ... 15 more nodes ... */
+  ],
+  "edges": [
+    { "from": "alice",   "to": "grp_emp", "predicate": "member_of",
+      "valid_from": "2026-01-01", "valid_to": "2026-05-10" },
+    { "from": "grp_emp", "to": "d_lab",   "predicate": "grants_access_to",
+      "valid_from": "2026-01-01" },
+    { "from": "grp_emp", "to": "sch_247", "predicate": "active_during",
+      "valid_from": "2026-01-01" },
+    { "from": "d_lab",   "to": "z_lab",   "predicate": "protects" }
+    /* ... 21 more edges ... */
+  ]
+}</code></pre>
+
+<h3>The seeded population</h3>
+
+<p>Three people, intentionally chosen so worked examples have a clean shape:</p>
+
+<table>
+  <tr><th>Person</th><th>Groups</th><th>Doors they can open</th><th>Why interesting</th></tr>
+  <tr><td>Alice</td><td>Employees (closed 2026-05-10)</td><td>Front, Lab</td><td>Demonstrates revocation — was active, now closed</td></tr>
+  <tr><td>Bob</td><td>ContractorsDay × 2 (one closed, one open)</td><td>Front</td><td>Demonstrates re-instatement — two tenures with a gap</td></tr>
+  <tr><td>Carol</td><td>Employees + Admins</td><td>Front, Lab, Server Room</td><td>Demonstrates multi-group access; promoted on 2026-03-01</td></tr>
+</table>
+
+<div class="callout">
+<span class="label">design note</span>
+Edges can have optional <code>valid_from</code> / <code>valid_to</code> properties — the temporal model. We'll come back to this in Layer 6. For now: edges with no validity are treated as <em>always valid</em>; edges with <code>valid_to</code> set are <em>closed</em>.
+</div>
+
+</section>
+
+<!-- ============================== 4. REASONER ============================== -->
+<section id="reasoner">
+<h2>4 · Layer 3 — Closed-form reasoner</h2>
+
+<p>The PACS decision in 80 lines of plain JavaScript. <code>canAccess(graph, personId, doorId, atTime)</code> walks the graph and returns whether to grant access — plus the path that justified it, or the reason it failed.</p>
+
+<h3>The rule, in words</h3>
+
+<pre class="diagram">
+GRANT iff there exists an AccessGroup G such that:
+
+  Person  ─member_of─►       G
+  G       ─grants_access_to► Door
+  G       ─active_during─►   Schedule S
+  S       covers atTime
+
+Everything else is DENY.
+</pre>
+
+<h3>The core traversal</h3>
+
+<div class="filelabel">reasoner.js (the inner loop)</div>
+<pre><code class="language-javascript">export function canAccess(graph, personId, doorId, atTime) {
+  const { neighbors } = buildIndex(graph);
+
+  // For every group the person is in, check whether that group
+  // grants this door AND its schedule covers `atTime`.
+  for (const groupId of neighbors(personId, "member_of")) {
+    const doors = neighbors(groupId, "grants_access_to");
+    if (!doors.includes(doorId)) continue;
+
+    for (const schedId of neighbors(groupId, "active_during")) {
+      if (scheduleCovers(schedId, atTime)) {
+        return {
+          decision: "grant",
+          path:  [personId, groupId, doorId, schedId],
+          edges: [
+            { from: personId, to: groupId, predicate: "member_of" },
+            { from: groupId,  to: doorId,  predicate: "grants_access_to" },
+            { from: groupId,  to: schedId, predicate: "active_during" }
+          ],
+          reason: `via group "${groupId}" on schedule "${schedId}"`
+        };
+      }
+    }
+  }
+  /* ... diagnostic-deny logic below ... */
+}</code></pre>
+
+<h3>Two opinions baked in</h3>
+
+<ul>
+  <li><strong>Fail-closed.</strong> Unknown schedule → deny. Safety default. Never flip this to fail-open.</li>
+  <li><strong>Diagnostic deny.</strong> Instead of returning a bare <code>false</code>, the reasoner runs three checks to identify <em>which condition failed</em>:</li>
+</ul>
+
+<div class="filelabel">reasoner.js (diagnostic deny)</div>
+<pre><code class="language-javascript">// 1. Is the person in any group?
+const groups = neighbors(personId, "member_of");
+if (groups.length === 0) {
+  return { decision: "deny", reason: "person is in no AccessGroup" };
+}
+
+// 2. Of those groups, does any grant this door?
+const granting = groups.filter(g =>
+  neighbors(g, "grants_access_to").includes(doorId));
+if (granting.length === 0) {
+  return { decision: "deny", reason: "no group of this person grants this door" };
+}
+
+// 3. Otherwise, no covering schedule.
+return {
+  decision: "deny",
+  reason: `group(s) ${granting.join(", ")} grant the door, but no schedule covers this time`
+};</code></pre>
+
+<div class="callout good">
+<span class="label">teaching point</span>
+This is the <strong>topology + side condition</strong> pattern in its purest form. The path existing is necessary but not sufficient; the schedule check (a context-dependent side condition over <code>atTime</code>) is what turns a graph from a data structure into a policy engine.
+</div>
+
+</section>
+
+<!-- ============================== 5. VIEWER ============================== -->
+<section id="viewer">
+<h2>5 · Layer 4 — Visualization (<code>index.html</code>)</h2>
+
+<p>A single HTML file that fetches <code>graph.json</code>, renders it with <a href="https://visjs.github.io/vis-network/docs/network/">vis-network</a>, and wires up the reasoner from Layer 3 to an interactive panel.</p>
+
+<h3>Per-class visual identity</h3>
+
+<p>Generic blobs are unreadable. Every class gets a distinct color and shape so the graph is legible at a glance:</p>
+
+<div class="filelabel">index.html (color/shape tables)</div>
+<pre><code class="language-javascript">const CLASS_COLORS = {
+  Person:      "#58a6ff",   // blue
+  Credential:  "#bc8cff",   // purple
+  AccessGroup: "#f0c674",   // amber
+  Schedule:    "#8b949e",   // grey
+  Reader:      "#ff9e64",   // orange
+  Door:        "#f47067",   // red
+  Zone:        "#56d364",   // green
+  Controller:  "#79c0ff"    // pale blue
+};
+
+const CLASS_SHAPES = {
+  Person:      "dot",
+  Credential:  "diamond",
+  AccessGroup: "hexagon",
+  Schedule:    "triangle",
+  Reader:      "square",
+  Door:        "box",
+  Zone:        "ellipse",
+  Controller:  "database"
+};</code></pre>
+
+<h3>Wiring the reasoner to the UI</h3>
+
+<p>When you press <em>Decide</em>, the page calls <code>canAccess</code>, prints the verdict, and highlights the justifying chain on the graph:</p>
+
+<div class="filelabel">index.html (decide handler)</div>
+<pre><code class="language-javascript">document.getElementById("decide").addEventListener("click", () => {
+  const personId = document.getElementById("sel-person").value;
+  const doorId   = document.getElementById("sel-door").value;
+  const t        = new Date(document.getElementById("sel-time").value);
+  const result   = canAccess(data, personId, doorId, t);
+
+  clearHighlight();
+  const ok = result.decision === "grant";
+  if (ok) highlight(result.path, result.edges, true);
+
+  const v = document.getElementById("verdict");
+  v.className = ok ? "grant" : "deny";
+  v.innerHTML =
+    `&lt;span class="tag"&gt;${ok ? "GRANT" : "DENY"}&lt;/span&gt; — ${personLabel} → ${doorLabel}` +
+    `&lt;div class="why"&gt;${result.reason}&lt;/div&gt;`;
+});</code></pre>
+
+<div class="callout warn">
+<span class="label">CSS gotcha (don't regress)</span>
+The layout depends on two CSS rules that look incidental but aren't:
+<pre style="margin: 8px 0;"><code class="language-css">html, body { height: 100vh; overflow: hidden; }
+main       { grid-template-rows: minmax(0, 1fr); }</code></pre>
+Without <code>grid-template-rows: minmax(0, 1fr)</code>, the side panel's scrollable content drives the row height past the viewport. The canvas grows with it, and <code>network.fit()</code> centers the view in the offscreen middle — <em>blank screen, no errors</em>. We debugged this once; don't undo it.
+</div>
+
+</section>
+
+<!-- ============================== 6. NEO4J ============================== -->
+<section id="neo4j">
+<h2>6 · Layer 5 — Neo4j (real graph database)</h2>
+
+<p>The JS reasoner answers <em>one</em> question shape. Cypher in Neo4j lets you ask anything you can compose. Same model, vastly more leverage.</p>
+
+<h3>Boot the database</h3>
+
+<div class="filelabel">docker-compose.yml</div>
+<pre><code class="language-yaml">services:
+  neo4j:
+    image: neo4j:5-community
+    container_name: pacs-neo4j
+    ports:
+      - "7474:7474"   # Browser UI
+      - "7687:7687"   # Bolt protocol
+    environment:
+      NEO4J_AUTH: neo4j/pacsgraph101
+    volumes:
+      - ./neo4j_data:/data</code></pre>
+
+<p>Then <code>docker compose up -d</code> brings it up. Browser at <code>localhost:7474</code> (login: <code>neo4j</code> / <code>pacsgraph101</code>).</p>
+
+<h3>Load the graph</h3>
+
+<p>The importer maps our JSON to Neo4j's labelled-property model: <code>class</code> becomes the node label, <code>predicate</code> becomes the relationship type.</p>
+
+<div class="filelabel">neo4j/import.py (the core mapping)</div>
+<pre><code class="language-python"># Nodes — one MERGE per class, label matches the `class` field
+for cls, rows in by_class.items():
+    s.run(
+        f"UNWIND $rows AS row "
+        f"MERGE (n:{cls} {{id: row.id}}) "
+        f"SET   n.label = row.label",
+        rows=rows,
+    )
+
+# Edges — CREATE (not MERGE) so the same (from, to, predicate) tuple
+# can occur multiple times. Re-instatement creates a *second* edge.
+for pred, rows in by_pred.items():
+    s.run(
+        f"UNWIND $rows AS row "
+        f"MATCH (a {{id: row.from}}), (b {{id: row.to}}) "
+        f"CREATE (a)-[r:{pred}]->(b) "
+        f"SET r.valid_from = CASE WHEN row.valid_from IS NOT NULL "
+        f"                        THEN date(row.valid_from) ELSE NULL END, "
+        f"    r.valid_to   = CASE WHEN row.valid_to   IS NOT NULL "
+        f"                        THEN date(row.valid_to)   ELSE NULL END",
+        rows=rows,
+    )</code></pre>
+
+<div class="callout warn">
+<span class="label">why CREATE, not MERGE</span>
+MERGE would collapse two edges between the same nodes into one. Bob has <em>two</em> <code>member_of</code> edges to ContractorsDay — one closed, one open — because he was re-instated. MERGE would lose the gap. CREATE preserves it. Safe because <code>import.py</code> wipes the DB first; idempotency is preserved that way.
+</div>
+
+<h3>The reasoner, in Cypher</h3>
+
+<p>The <em>entire</em> <code>canAccess</code> from Layer 3, expressed in one query:</p>
+
+<div class="filelabel">Cypher — equivalent of reasoner.js::canAccess</div>
+<pre><code class="language-sql">WITH datetime() AS now, 'alice' AS person_id, 'd_lab' AS door_id
+MATCH (p:Person {id: person_id})-[:member_of]-&gt;(g:AccessGroup)
+                                -[:grants_access_to]-&gt;(d:Door {id: door_id})
+WHERE EXISTS {
+  MATCH (g)-[:active_during]-&gt;(s:Schedule)
+  WHERE date(now).dayOfWeek IN s.weekdays
+    AND time(now).hour     &gt;= s.start_hour
+    AND time(now).hour     &lt;  s.end_hour
+}
+RETURN p.label AS person, g.label AS via_group, d.label AS door;</code></pre>
+
+<p>Empty result = DENY. One or more rows = GRANT (and the row tells you <em>which</em> group justified it). Three new ideas this query introduces:</p>
+
+<ol>
+  <li><strong><code>WITH</code> as parameter injection.</strong> Cypher's closest thing to function arguments.</li>
+  <li><strong><code>EXISTS { ... }</code> as side-condition sub-query.</strong> True if the inner pattern has at least one match — the existence side-condition flavor.</li>
+  <li><strong>Cypher's temporal types.</strong> <code>date(x).dayOfWeek</code>, <code>time(x).hour</code> — first-class, ISO-8601 weekdays (Mon=1..Sun=7).</li>
+</ol>
+
+<div class="callout good">
+<span class="label">same data, different power</span>
+The JS reasoner can <em>only</em> answer "grant or deny?". Cypher lets you ask: "Who is in more than one group?" "Which controllers manage readers that control no door?" "Show me the path from this credential to this zone." Same graph, infinitely more questions.
+</div>
+
+</section>
+
+<!-- ============================== 7. TEMPORAL ============================== -->
+<section id="temporal">
+<h2>7 · Layer 6 — Temporal model</h2>
+
+<p>A snapshot graph can't answer the auditor's classic question: <em>"Who had access at 2 AM on March 14th?"</em> If revocation destroys the edge, the prior state is gone. The temporal model is the fix.</p>
+
+<h3>The principle</h3>
+
+<p>Every <strong>policy edge</strong> carries an optional validity window. Revocation is <strong>append-only</strong> — you close an edge by setting <code>valid_to</code>, never delete it.</p>
+
+<pre class="diagram">
+  open edge:    valid_from = 2026-01-01, valid_to = null   ◄── still in force
+  closed edge:  valid_from = 2026-01-01, valid_to = 2026-05-10
+</pre>
+
+<h3>Which predicates are temporal?</h3>
+
+<table>
+  <tr><th>Predicate</th><th>Temporal?</th><th>Why</th></tr>
+  <tr><td><code>holds</code></td><td>✓</td><td>Badges are issued and revoked</td></tr>
+  <tr><td><code>member_of</code></td><td>✓</td><td>Group memberships change</td></tr>
+  <tr><td><code>grants_access_to</code></td><td>✓</td><td>Policy is edited</td></tr>
+  <tr><td><code>active_during</code></td><td>✓</td><td>A group's schedule can be reassigned</td></tr>
+  <tr><td><code>controls</code></td><td>✗ static</td><td>Hardware wiring — changes slowly</td></tr>
+  <tr><td><code>protects</code></td><td>✗ static</td><td>Building layout — same</td></tr>
+  <tr><td><code>managed_by</code></td><td>✗ static</td><td>Panel topology — same</td></tr>
+</table>
+
+<h3>The live-at-$when filter</h3>
+
+<p>One pattern, applied to every temporal edge in a query, turns a snapshot query into a time-travel query:</p>
+
+<div class="filelabel">Cypher — the foundational temporal filter</div>
+<pre><code class="language-sql">WHERE (r.valid_from IS NULL OR r.valid_from &lt;= $when)
+  AND (r.valid_to   IS NULL OR r.valid_to   &gt;  $when)</code></pre>
+
+<p>Read aloud: <em>"the edge started by <code>$when</code> (or has no start) AND hadn't ended by <code>$when</code> (or never ended)."</em> Both must hold = the edge was live at <code>$when</code>.</p>
+
+<h3>The auditor's question, side by side</h3>
+
+<table>
+  <tr><th>Query</th><th>Result</th><th>Why</th></tr>
+  <tr>
+    <td><code>WITH date() AS when ...</code> (today)</td>
+    <td>Carol only</td>
+    <td>Alice's <code>member_of</code> closed 2026-05-10</td>
+  </tr>
+  <tr>
+    <td><code>WITH date('2026-04-15') AS when ...</code></td>
+    <td>Alice + Carol</td>
+    <td>On April 15, Alice was still a member</td>
+  </tr>
+</table>
+
+<p>Same query shape. One literal changes. Two completely different answers. A legacy PACS that <code>DELETE</code>s revoked edges can produce the first answer but <em>cannot produce the second at all</em> — the data is gone.</p>
+
+<h3>Re-instatement: multiple edges, same nodes</h3>
+
+<p>Bob's contract ended 2026-04-15, then he came back 2026-04-22. That's <em>two</em> <code>member_of</code> edges between Bob and ContractorsDay with non-overlapping windows — never a reopening of the old one.</p>
+
+<pre class="diagram">
+  bob ─member_of─► grp_con  [2026-01-01 → 2026-04-15]   ◄── closed (old contract)
+  bob ─member_of─► grp_con  [2026-04-22 → null      ]   ◄── open (re-instatement)
+                            └──── 7-day gap ────┘
+</pre>
+
+<p>Reopening the old edge by clearing <code>valid_to</code> would erase the gap and produce wrong answers for "was Bob a member on April 18?". The append-only model preserves the truth.</p>
+
+<div class="callout">
+<span class="label">credentials are reissued, not reactivated</span>
+When Bob returned, he got Badge-004 (a new <code>Credential</code> node), not a reactivation of Badge-002. Credentials are first-class identities; their history stays in the graph closed forever. This matches real PACS security policy.
+</div>
+
+</section>
+
+<!-- ============================== 8. AGENT ============================== -->
+<section id="agent">
+<h2>8 · Layer 7 — GraphRAG agent</h2>
+
+<p>The agent turns English questions into Cypher, executes them, and renders prose answers. The architecture is dictated by one safety property: <strong>the LLM never sees the raw data while answering the user's question</strong>.</p>
+
+<h3>The two-call pattern</h3>
+
+<pre class="diagram">
+  user question
+       │
+       ▼
+  ┌───────────────────────┐
+  │  Claude #1 — Planner  │ ◄── system prompt: ontology.md
+  │                       │
+  │  sees:  schema only   │
+  │  emits: ONE Cypher    │
+  └───────────────────────┘
+       │
+       ▼
+   cypher string
+       │
+       ▼
+  ┌───────────────────────┐
+  │  Safety regex gate    │  rejects DELETE/MERGE/SET/CREATE/...
+  └───────────────────────┘
+       │ (read-only verbs only)
+       ▼
+  ┌───────────────────────┐
+  │  Neo4j session        │  default_access_mode="r"
+  │                       │  (driver-level read enforcement)
+  └───────────────────────┘
+       │
+       ▼
+    rows (JSON)
+       │
+       ▼
+  ┌───────────────────────┐
+  │  Claude #2 — Renderer │ ◄── system prompt: stable
+  │                       │
+  │  sees:  question +    │
+  │         cypher + rows │
+  │  emits: prose answer  │
+  └───────────────────────┘
+       │
+       ▼
+  user sees: plan, rows, answer
+  saved to:  agent/transcripts/&lt;ts&gt;/
+</pre>
+
+<h3>Why two separate calls, not one</h3>
+
+<p>If a single LLM saw both the question and the rows, it could "blend" — reinterpret rows to match what it expected. Keeping the calls separate enforces a hard property: <strong>the renderer trusts the rows</strong>. It can't compose new queries; it can only describe what's there.</p>
+
+<h3>The planner call</h3>
+
+<div class="filelabel">agent/agent.py (planner)</div>
+<pre><code class="language-python">def call_planner(client, planner_system, question, today):
+    user_msg = f"TODAY={today}\n\nQuestion: {question}"
+    response = client.messages.create(
+        model="claude-opus-4-7",
+        max_tokens=16000,
+        thinking={"type": "adaptive"},
+        output_config={"effort": "high"},
+        system=[{
+            "type": "text",
+            "text": planner_system,
+            # Stable system prompt → caches across questions. Volatile
+            # bits (today, the question) live in the user message so the
+            # cache prefix never shifts.
+            "cache_control": {"type": "ephemeral"},
+        }],
+        messages=[{"role": "user", "content": user_msg}],
+    )
+    return "".join(b.text for b in response.content if b.type == "text")</code></pre>
+
+<h3>The safety gate</h3>
+
+<div class="filelabel">agent/agent.py (forbidden verbs)</div>
+<pre><code class="language-python">FORBIDDEN = re.compile(
+    r"\b(?:CREATE|MERGE|DELETE|DETACH|SET|REMOVE|DROP|LOAD\s+CSV|"
+    r"CALL\s+(?!{)|FOREACH)\b",
+    flags=re.IGNORECASE,
+)
+
+def safety_check(cypher: str) -> str | None:
+    if FORBIDDEN.search(cypher):
+        match = FORBIDDEN.search(cypher).group(0)
+        return f"query contains forbidden write keyword: {match!r}"
+    return None</code></pre>
+
+<p>Belt-and-braces with the driver:</p>
+
+<div class="filelabel">agent/agent.py (read-only session)</div>
+<pre><code class="language-python">def run_cypher(driver, cypher):
+    # Even if the regex were bypassed, the driver refuses writes
+    # in a read-mode session. Defense in depth.
+    with driver.session(default_access_mode="r") as session:
+        result = session.run(cypher)
+        return [record.data() for record in result]</code></pre>
+
+<h3>The planner system prompt — built from the live ontology</h3>
+
+<div class="filelabel">agent/prompts.py (composition)</div>
+<pre><code class="language-python">def build_planner_system(ontology_text: str) -> str:
+    """Compose the planner system prompt with the live ontology contents.
+
+    Keep this pure — same `ontology_text` must produce the same bytes
+    every call so prompt caching stays warm.
+    """
+    return PLANNER_INTRO + ontology_text + PLANNER_OUTRO</code></pre>
+
+<p>The system prompt embeds <code>ontology.md</code> verbatim. The planner sees the contract, never the data. This is the schema-aware grounding that distinguishes GraphRAG from naive RAG: it doesn't search through chunks — it composes queries from a known schema.</p>
+
+<div class="callout good">
+<span class="label">prompt caching is load-bearing</span>
+The planner system prompt is hundreds of lines (intro + ontology + temporal model + style notes). Without caching, every question pays for sending all of it again. With <code>cache_control: {"type": "ephemeral"}</code>, subsequent questions are ~90% cheaper. The volatile bits (today's date, the user's question) live in the user message so the cached prefix never shifts.
+</div>
+
+<h3>Transcripts — Phase 4 fuel</h3>
+
+<p>Each question saves four files under <code>agent/transcripts/&lt;timestamp&gt;/</code>:</p>
+
+<pre class="diagram">
+  agent/transcripts/2026-05-24T14-32-07/
+  ├── question.txt    ← the English question
+  ├── plan.cypher     ← what the planner emitted
+  ├── rows.json       ← what Neo4j returned
+  └── answer.txt      ← what the renderer produced
+</pre>
+
+<p>These artifacts are the input to the deferred Phase 4: a head-to-head comparison against the same questions written in SQL. The point isn't "GraphRAG wins"; it's <em>here's the question shape that needs it, and here's what it still gets wrong</em>.</p>
+
+</section>
+
+<!-- ============================== 9. FLOW ============================== -->
+<section id="flow">
+<h2>9 · End-to-end data flow</h2>
+
+<p>Three different ways the same question gets answered, depending on which surface the user is pointed at.</p>
+
+<h3>Path A — Browser UI (closed-form, snapshot only)</h3>
+
+<pre class="diagram">
+  User picks (Alice, Lab Door, "Mon 10am")
+         │
+         ▼
+  index.html: button handler
+         │
+         ▼
+  reasoner.js::canAccess(graph, "alice", "d_lab", t)
+         │  (in-memory graph, no DB)
+         ▼
+  { decision: "grant",
+    path: ["alice", "grp_emp", "d_lab", "sch_247"],
+    reason: 'via group "grp_emp" on schedule "sch_247"' }
+         │
+         ▼
+  UI: green path highlighted on graph, verdict panel updates
+</pre>
+
+<h3>Path B — Neo4j Browser (Cypher, full history)</h3>
+
+<pre class="diagram">
+  User opens http://localhost:7474, pastes Cypher
+         │
+         ▼
+  Neo4j parses + plans the query
+         │
+         ▼
+  Reads edges; filters by validity windows if asked
+         │
+         ▼
+  Returns rows (sub-graph or table)
+         │
+         ▼
+  Browser renders Table tab or Graph tab
+</pre>
+
+<h3>Path C — GraphRAG agent (NL → Cypher → prose)</h3>
+
+<pre class="diagram">
+  Terminal: python3 agent/agent.py
+  User types: "Who had Lab access on 2026-04-15?"
+         │
+         ▼
+  Claude #1 (planner) — reads ontology, emits Cypher
+         │
+         ▼
+  WITH date('2026-04-15') AS when MATCH ... WHERE ... RETURN ...
+         │
+         ▼
+  Safety regex passes (no write verbs)
+         │
+         ▼
+  Neo4j read session executes
+         │
+         ▼
+  rows = [{ person: "Alice" }, { person: "Carol" }]
+         │
+         ▼
+  Claude #2 (renderer) — reads question + cypher + rows
+         │
+         ▼
+  "On 2026-04-15, both Alice and Carol had Lab access via Employees..."
+         │
+         ▼
+  Transcript saved; user reads answer
+</pre>
+
+</section>
+
+<!-- ============================== 10. INVARIANTS ============================== -->
+<section id="invariants">
+<h2>10 · Invariants that hold across the stack</h2>
+
+<p>These aren't enforced by tests (there are none). They're enforced by discipline and documented in <code>CLAUDE.md</code> so future sessions don't regress them.</p>
+
+<table>
+  <tr><th>Invariant</th><th>Lives in</th><th>Why it matters</th></tr>
+  <tr>
+    <td><strong>Ontology is the contract</strong></td>
+    <td>ontology.md → graph.json → reasoner.js / index.html / import.py / cypher.md</td>
+    <td>Adding a predicate is a four-place edit. Top-down propagation is the discipline.</td>
+  </tr>
+  <tr>
+    <td><strong>Fail-closed on unknown schedules</strong></td>
+    <td><code>reasoner.js::scheduleCovers</code></td>
+    <td>Security default — if we don't recognise the schedule, deny.</td>
+  </tr>
+  <tr>
+    <td><strong>Diagnostic deny</strong></td>
+    <td><code>canAccess</code> + the agent renderer</td>
+    <td>Operators need to know <em>why</em> access failed, not just <em>that</em> it failed.</td>
+  </tr>
+  <tr>
+    <td><strong>Append-only on policy edges</strong></td>
+    <td>graph.json, import.py, cypher.md, scenarios.md</td>
+    <td>Revocation must preserve history. Never <code>DELETE</code>; close with <code>valid_to</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>Live-at-$when filter pattern</strong></td>
+    <td>cypher.md §6, scenarios.md, agent planner prompt</td>
+    <td>Single foundational pattern for every audit-style query.</td>
+  </tr>
+  <tr>
+    <td><strong>Credentials are reissued, not reactivated</strong></td>
+    <td>graph.json (Bob → Badge-004), ontology.md</td>
+    <td>Matches real PACS security; credential ID has its own lifetime.</td>
+  </tr>
+  <tr>
+    <td><strong>Planner and renderer never overlap</strong></td>
+    <td>agent.py (two separate LLM calls)</td>
+    <td>The renderer can't compose queries; the planner can't see data.</td>
+  </tr>
+  <tr>
+    <td><strong>Read-only enforcement, two places</strong></td>
+    <td>agent.py regex + Neo4j session mode</td>
+    <td>Defense in depth. Either alone would suffice; both together is the right level of paranoia.</td>
+  </tr>
+  <tr>
+    <td><strong>Prompt caching prefix is stable</strong></td>
+    <td>agent.py + prompts.py</td>
+    <td>Today's date and the question go in the <em>user</em> message, not system. Don't add timestamps to the system prompt.</td>
+  </tr>
+</table>
+
+</section>
+
+<!-- ============================== 11. NEXT ============================== -->
+<section id="next">
+<h2>11 · Where to go next</h2>
+
+<h3>Deferred (Phase 4) — GraphRAG vs SQL</h3>
+
+<p>The most pedagogically valuable next step is the <strong>honest</strong> comparison. Plain RAG over markdown chunks is a strawman — PACS data never lives that way in reality. The real incumbent is a relational database with <code>valid_from</code> / <code>valid_to</code> columns on every junction table.</p>
+
+<p>The Phase 4 we'd actually want to build:</p>
+
+<ul>
+  <li>A Postgres or SQLite mirror with <code>cardholder</code>, <code>access_group_membership</code>, <code>access_level_assignment</code> tables</li>
+  <li>The same canonical questions written as both Cypher (via the GraphRAG agent) and SQL</li>
+  <li>An honest comparison: where SQL wins (well-known, mature tooling, performance), where it gets painful (re-instatement, gap detection, multi-temporal joins), and where it's a wash</li>
+</ul>
+
+<h3>Deferred from Phase 2</h3>
+
+<table>
+  <tr><th>Item</th><th>Why deferred</th></tr>
+  <tr><td><code>:denylist</code> predicate</td><td>Defer until a scenario needs it</td></tr>
+  <tr><td>Node <code>status</code> history</td><td>That's full bitemporal — transaction time as a second axis</td></tr>
+  <tr><td>JS reasoner <code>asOf</code> parameter</td><td>UI change; would close the snapshot-vs-history divergence between the JS viewer and Neo4j</td></tr>
+</table>
+
+<h3>Pointers for tomorrow-you</h3>
+
+<table>
+  <tr><th>Path</th><th>What's there</th></tr>
+  <tr><td><code>PROGRESS.md</code></td><td>Live checklist of what's done and what's open</td></tr>
+  <tr><td><code>README.md</code></td><td>Project tour, run commands, file roles</td></tr>
+  <tr><td><code>CLAUDE.md</code></td><td>Agent operating manual — invariants, gotchas, style commitments</td></tr>
+  <tr><td><code>ontology.md</code></td><td>The contract — start here when anything changes</td></tr>
+  <tr><td><code>neo4j/cypher.md</code></td><td>Teaching ladder of queries; §6 is the temporal section</td></tr>
+  <tr><td><code>scenarios.md</code></td><td>Auditor-style worked questions over the temporal graph</td></tr>
+</table>
+
+</section>
+
+<footer>
+Generated from the repo at the state of commit <code>88a4d9a</code>.
+Serve with <code>python3 -m http.server &quot;${HTTP_PORT:-8000}&quot;</code> (port comes from <code>.env</code> if set; default 8000) and open <code>architecture.html</code> in your browser. Or browse on the
+<a href="https://github.com/mishitpatel/pacs-graph-101">GitHub repo</a>.
+</footer>
+
+</main>
+
+</div>
+</body>
+</html>

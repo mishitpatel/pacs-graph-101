@@ -13,8 +13,9 @@ The whole stack — schema, instance data, visualization, reasoner, NL-query lay
 No build step, no package manager. Just a static site:
 
 ```bash
-python3 -m http.server 8000
-# then open http://localhost:8000/
+set -a; [ -f .env ] && . ./.env; set +a   # load HTTP_PORT (and friends) if .env exists
+python3 -m http.server "${HTTP_PORT:-8000}"
+# then open http://localhost:${HTTP_PORT:-8000}/
 ```
 
 `index.html` uses an ES module import (`reasoner.js`) and `fetch("graph.json")`, both of which require HTTP — opening the file via `file://` will fail with CORS errors.

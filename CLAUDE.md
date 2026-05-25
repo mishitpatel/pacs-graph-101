@@ -11,7 +11,7 @@ This is a pedagogical project. The three concepts being taught are **ontology**,
 ## Running and verifying
 
 ```bash
-python3 -m http.server 8000        # serve the JS viewer at http://localhost:8000/
+python3 -m http.server "${HTTP_PORT:-8000}"   # serve the JS viewer (port from .env, defaults to 8000)
 docker compose up -d               # start Neo4j (Phase 1+) at http://localhost:7474
 python3 neo4j/import.py            # load graph.json into Neo4j (idempotent — wipes and re-imports)
 python3 agent/agent.py             # GraphRAG REPL (Phase 3) — needs ANTHROPIC_API_KEY
@@ -26,7 +26,7 @@ Two canonical smoke cases for any reasoner/UI change:
 - **Bob + Lab Door + weekday 10am** → DENY (`reason`: "no group of this person grants this door")
 - **Carol + Server Room Door + Saturday 03:00** → GRANT via Admins on `sch_247`, justifying path highlighted green
 
-Playwright is installed for headless verification when you can't ask the user to look. Drive `http://localhost:8000/`, sample canvas pixels or read `window.__pacs.network` (exposed in `index.html` for debugging).
+Playwright is installed for headless verification when you can't ask the user to look. Drive the local HTTP server (port from `$HTTP_PORT` in `.env`, defaults to 8000), sample canvas pixels or read `window.__pacs.network` (exposed in `index.html` for debugging).
 
 ## Invariants — preserve these when extending
 
