@@ -1,0 +1,26 @@
+# Local Neo4j Community Edition for PACS Graph 101.
+#
+# Boot:    docker compose up -d
+# Stop:    docker compose down
+# Reset:   docker compose down -v   (also wipes the data volume)
+#
+# Browser UI: http://localhost:7474    (login: neo4j / pacsgraph101)
+# Bolt URI:   bolt://localhost:7687    (used by drivers / import.py)
+#
+# Data persists in ./neo4j_data — gitignored. Delete that dir for a fresh DB.
+
+services:
+  neo4j:
+    image: neo4j:5-community
+    container_name: pacs-neo4j
+    restart: unless-stopped
+    ports:
+      - "7474:7474"   # HTTP / Browser UI
+      - "7687:7687"   # Bolt protocol (drivers)
+    environment:
+      NEO4J_AUTH: neo4j/pacsgraph101
+      # Accept the community license terms on container start
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+    volumes:
+      - ./neo4j_data:/data
+      - ./neo4j_data/logs:/logs

@@ -1,0 +1,82 @@
+{
+  "nodes": [
+    { "id": "alice",    "label": "Alice",          "class": "Person" },
+    { "id": "bob",      "label": "Bob",            "class": "Person" },
+    { "id": "carol",    "label": "Carol",          "class": "Person" },
+
+    { "id": "badge001", "label": "Badge-001",      "class": "Credential" },
+    { "id": "badge002", "label": "Badge-002",      "class": "Credential" },
+    { "id": "badge003", "label": "Badge-003",      "class": "Credential" },
+    { "id": "badge004", "label": "Badge-004",      "class": "Credential" },
+
+    { "id": "grp_emp",  "label": "Employees",      "class": "AccessGroup" },
+    { "id": "grp_con",  "label": "ContractorsDay", "class": "AccessGroup" },
+    { "id": "grp_adm",  "label": "Admins",         "class": "AccessGroup" },
+
+    { "id": "sch_247",  "label": "24x7",           "class": "Schedule" },
+    { "id": "sch_biz",  "label": "BusinessHours",  "class": "Schedule" },
+
+    { "id": "r1",       "label": "Reader R1",      "class": "Reader" },
+    { "id": "r2",       "label": "Reader R2",      "class": "Reader" },
+    { "id": "r3",       "label": "Reader R3",      "class": "Reader" },
+
+    { "id": "d_front",  "label": "Front Door",     "class": "Door" },
+    { "id": "d_lab",    "label": "Lab Door",       "class": "Door" },
+    { "id": "d_srv",    "label": "Server Room Door","class": "Door" },
+
+    { "id": "z_lobby",  "label": "Lobby",          "class": "Zone" },
+    { "id": "z_lab",    "label": "Lab",            "class": "Zone" },
+    { "id": "z_srv",    "label": "Server Room",    "class": "Zone" },
+
+    { "id": "panel_a",  "label": "Panel A",        "class": "Controller" }
+  ],
+  "edges": [
+    { "from": "alice", "to": "badge001", "predicate": "holds",
+      "valid_from": "2026-01-01", "valid_to": "2026-05-10" },
+    { "from": "bob",   "to": "badge002", "predicate": "holds",
+      "valid_from": "2026-01-01", "valid_to": "2026-04-15" },
+    { "from": "bob",   "to": "badge004", "predicate": "holds",
+      "valid_from": "2026-04-22" },
+    { "from": "carol", "to": "badge003", "predicate": "holds",
+      "valid_from": "2026-01-15" },
+
+    { "from": "alice", "to": "grp_emp", "predicate": "member_of",
+      "valid_from": "2026-01-01", "valid_to": "2026-05-10" },
+    { "from": "bob",   "to": "grp_con", "predicate": "member_of",
+      "valid_from": "2026-01-01", "valid_to": "2026-04-15" },
+    { "from": "bob",   "to": "grp_con", "predicate": "member_of",
+      "valid_from": "2026-04-22" },
+    { "from": "carol", "to": "grp_emp", "predicate": "member_of",
+      "valid_from": "2026-01-15" },
+    { "from": "carol", "to": "grp_adm", "predicate": "member_of",
+      "valid_from": "2026-03-01" },
+
+    { "from": "grp_emp", "to": "d_front", "predicate": "grants_access_to",
+      "valid_from": "2026-01-01" },
+    { "from": "grp_emp", "to": "d_lab",   "predicate": "grants_access_to",
+      "valid_from": "2026-01-01" },
+    { "from": "grp_con", "to": "d_front", "predicate": "grants_access_to",
+      "valid_from": "2026-01-01" },
+    { "from": "grp_adm", "to": "d_srv",   "predicate": "grants_access_to",
+      "valid_from": "2026-01-01" },
+
+    { "from": "grp_emp", "to": "sch_247", "predicate": "active_during",
+      "valid_from": "2026-01-01" },
+    { "from": "grp_con", "to": "sch_biz", "predicate": "active_during",
+      "valid_from": "2026-01-01" },
+    { "from": "grp_adm", "to": "sch_247", "predicate": "active_during",
+      "valid_from": "2026-01-01" },
+
+    { "from": "r1", "to": "d_front", "predicate": "controls" },
+    { "from": "r2", "to": "d_lab",   "predicate": "controls" },
+    { "from": "r3", "to": "d_srv",   "predicate": "controls" },
+
+    { "from": "d_front", "to": "z_lobby", "predicate": "protects" },
+    { "from": "d_lab",   "to": "z_lab",   "predicate": "protects" },
+    { "from": "d_srv",   "to": "z_srv",   "predicate": "protects" },
+
+    { "from": "r1", "to": "panel_a", "predicate": "managed_by" },
+    { "from": "r2", "to": "panel_a", "predicate": "managed_by" },
+    { "from": "r3", "to": "panel_a", "predicate": "managed_by" }
+  ]
+}

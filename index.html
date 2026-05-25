@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>PACS Graph 101</title>
+  <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+  <style>
+    :root {
+      --bg: #0e1116;
+      --panel: #161b22;
+      --ink: #e6edf3;
+      --muted: #8b949e;
+      --line: #30363d;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--ink);
+                 font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
+    html, body { height: 100vh; overflow: hidden; }
+    body { display: flex; flex-direction: column; }
+    header { padding: 14px 20px; border-bottom: 1px solid var(--line); flex: 0 0 auto; }
+    header h1 { margin: 0; font-size: 16px; font-weight: 600; }
+    header p  { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    main { flex: 1; display: grid; grid-template-columns: 1fr 260px;
+           grid-template-rows: minmax(0, 1fr); min-height: 0; }
+    #graph { width: 100%; height: 100%; background: var(--bg); min-width: 0; min-height: 0; }
+    aside { border-left: 1px solid var(--line); padding: 14px; overflow-y: auto;
+            background: var(--panel); min-height: 0; }
+    aside h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+               color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+    aside section { margin-bottom: 18px; }
+    .legend-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 4px 0; }
+    .swatch { width: 12px; height: 12px; border-radius: 3px; }
+    .pred { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px; color: var(--ink); padding: 2px 0; }
+    .pred .arrow { color: var(--muted); }
+    .hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .row { display: flex; gap: 6px; align-items: center; margin: 6px 0; font-size: 12px; }
+    .row label { color: var(--muted); width: 48px; }
+    select, input[type="datetime-local"] {
+      background: #0e1116; color: var(--ink); border: 1px solid var(--line);
+      border-radius: 4px; padding: 4px 6px; font-size: 12px; flex: 1; min-width: 0;
+      font-family: inherit;
+    }
+    button {
+      background: #238636; color: #fff; border: 0; border-radius: 4px;
+      padding: 6px 10px; font-size: 12px; cursor: pointer; width: 100%;
+      margin-top: 6px; font-weight: 600;
+    }
+    button:hover { background: #2ea043; }
+    .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px; }
+    .presets button {
+      background: #21262d; color: var(--ink); border: 1px solid var(--line);
+      padding: 5px 6px; font-size: 11px; font-weight: 500; margin: 0;
+      text-align: left;
+    }
+    .presets button:hover { background: #30363d; border-color: #58a6ff; }
+    .presets-hint { font-size: 11px; color: var(--muted); margin-top: 8px; }
+    #verdict { margin-top: 10px; padding: 8px; border-radius: 4px; font-size: 12px; line-height: 1.5; }
+    #verdict.grant { background: rgba(46, 160, 67, 0.15); border: 1px solid #2ea043; }
+    #verdict.deny  { background: rgba(248, 81, 73, 0.15);  border: 1px solid #f85149; }
+    #verdict .tag { font-weight: 700; letter-spacing: 0.04em; }
+    #verdict.grant .tag { color: #56d364; }
+    #verdict.deny  .tag { color: #ff7b72; }
+    #verdict .why { color: var(--muted); margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Physical Access Control System — Knowledge Graph 101</h1>
+    <p>Drag nodes · scroll to zoom · hover an edge to see the predicate</p>
+  </header>
+  <main>
+    <div id="graph"></div>
+    <aside>
+      <section>
+        <h2>Classes</h2>
+        <div id="legend"></div>
+      </section>
+      <section>
+        <h2>Predicates</h2>
+        <div id="predicates"></div>
+      </section>
+      <section>
+        <h2>Ask the reasoner</h2>
+        <div class="hint" style="margin-bottom:8px;">
+          Pick a person, a door, and a time. The reasoner walks the graph
+          and highlights the chain that justifies <b>grant</b> — or tells
+          you exactly why it's <b>deny</b>.
+        </div>
+        <div class="row"><label>Person</label><select id="sel-person"></select></div>
+        <div class="row"><label>Door</label><select id="sel-door"></select></div>
+        <div class="row"><label>When</label><input id="sel-time" type="datetime-local" /></div>
+        <div class="presets-hint">Quick times to test the schedule:</div>
+        <div class="presets">
+          <button data-preset="now">Now</button>
+          <button data-preset="biz">Mon 10:00 (biz hours)</button>
+          <button data-preset="late">Mon 23:00 (after hours)</button>
+          <button data-preset="weekend">Sat 03:00 (weekend)</button>
+        </div>
+        <button id="decide">Decide</button>
+        <div id="verdict" style="display:none;"></div>
+      </section>
+    </aside>
+  </main>
+
+  <script type="module">
+    import { canAccess } from "./reasoner.js";
+
+    const CLASS_COLORS = {
+      Person:      "#58a6ff",
+      Credential:  "#bc8cff",
+      AccessGroup: "#f0c674",
+      Schedule:    "#8b949e",
+      Reader:      "#ff9e64",
+      Door:        "#f47067",
+      Zone:        "#56d364",
+      Controller:  "#79c0ff"
+    };
+    const CLASS_SHAPES = {
+      Person:      "dot",
+      Credential:  "diamond",
+      AccessGroup: "hexagon",
+      Schedule:    "triangle",
+      Reader:      "square",
+      Door:        "box",
+      Zone:        "ellipse",
+      Controller:  "database"
+    };
+
+    fetch("graph.json").then(r => r.json()).then(data => {
+      const nodes = new vis.DataSet(data.nodes.map(n => ({
+        id: n.id,
+        label: n.label,
+        group: n.class,
+        shape: CLASS_SHAPES[n.class] || "dot",
+        color: { background: CLASS_COLORS[n.class], border: "#0e1116" },
+        font:  { color: "#0e1116", face: "system-ui", size: 13, bold: true }
+      })));
+
+      const edges = new vis.DataSet(data.edges.map((e, i) => ({
+        id: i,
+        from: e.from,
+        to: e.to,
+        label: e.predicate,
+        arrows: "to",
+        color: { color: "#8b949e", highlight: "#e6edf3" },
+        font: { color: "#c9d1d9", size: 10, strokeWidth: 3, strokeColor: "#0e1116", align: "middle" },
+        smooth: { type: "dynamic" }
+      })));
+
+      const container = document.getElementById("graph");
+      console.log("[pacs] vis loaded:", typeof vis, "container size:",
+                  container.clientWidth, "x", container.clientHeight,
+                  "nodes:", nodes.length, "edges:", edges.length);
+
+      const network = new vis.Network(container, { nodes, edges }, {
+        autoResize: true,
+        layout: { randomSeed: 7, improvedLayout: false },
+        physics: {
+          enabled: true,
+          solver: "barnesHut",
+          barnesHut: {
+            gravitationalConstant: -3000,
+            centralGravity: 0.3,
+            springLength: 140,
+            springConstant: 0.05,
+            damping: 0.4,
+            avoidOverlap: 0.6
+          },
+          stabilization: { enabled: true, iterations: 300, fit: false },
+          timestep: 0.4
+        },
+        interaction: { hover: true, tooltipDelay: 100, zoomView: true, dragView: true },
+        nodes: { borderWidth: 2, size: 18 },
+        edges: { length: 160 }
+      });
+
+      // fit-and-clamp: vis.fit() can pick an extreme scale on small graphs,
+      // making nodes sub-pixel. Cap zoom so things stay visible.
+      const fitAndClamp = () => {
+        try {
+          network.fit({ animation: false });
+          const s = network.getScale();
+          if (!isFinite(s) || s < 0.4) network.moveTo({ scale: 0.8 });
+          if (s > 2.5) network.moveTo({ scale: 1.5 });
+          network.redraw();
+          console.log("[pacs] fit done, scale=", network.getScale());
+        } catch (e) { console.warn("fit failed", e); }
+      };
+      network.once("stabilizationIterationsDone", () => {
+        console.log("[pacs] stabilized");
+        network.setOptions({ physics: { enabled: false } });
+        fitAndClamp();
+      });
+      // safety net in case stabilization never fires
+      setTimeout(fitAndClamp, 1200);
+      setTimeout(fitAndClamp, 2500);
+      // expose for debugging
+      window.__pacs = { network, nodes, edges, data };
+
+      // legend
+      const legend = document.getElementById("legend");
+      Object.entries(CLASS_COLORS).forEach(([k, v]) => {
+        const row = document.createElement("div");
+        row.className = "legend-row";
+        row.innerHTML = `<span class="swatch" style="background:${v}"></span>${k}`;
+        legend.appendChild(row);
+      });
+
+      // unique predicates with domain/range
+      const preds = {};
+      data.edges.forEach(e => {
+        const fromCls = data.nodes.find(n => n.id === e.from).class;
+        const toCls   = data.nodes.find(n => n.id === e.to).class;
+        preds[e.predicate] = `${fromCls} → ${toCls}`;
+      });
+      const pe = document.getElementById("predicates");
+      Object.entries(preds).forEach(([p, sig]) => {
+        const row = document.createElement("div");
+        row.className = "pred";
+        row.innerHTML = `${p} <span class="arrow">· ${sig}</span>`;
+        pe.appendChild(row);
+      });
+
+      // --- Reasoner UI ---
+      const fill = (sel, cls) => {
+        data.nodes.filter(n => n.class === cls).forEach(n => {
+          const o = document.createElement("option");
+          o.value = n.id; o.textContent = n.label;
+          sel.appendChild(o);
+        });
+      };
+      fill(document.getElementById("sel-person"), "Person");
+      fill(document.getElementById("sel-door"),   "Door");
+
+      // Default to "now"
+      const pad = n => String(n).padStart(2, "0");
+      const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      const setTime = d => { document.getElementById("sel-time").value = fmt(d); };
+      setTime(new Date());
+
+      // Snap to a known weekday / weekend relative to today so the presets
+      // are always reproducible — no matter when you load the page.
+      const nextOrSameDay = (target, hour) => {
+        const d = new Date();
+        const delta = (target - d.getDay() + 7) % 7;
+        d.setDate(d.getDate() + delta);
+        d.setHours(hour, 0, 0, 0);
+        return d;
+      };
+      document.querySelectorAll(".presets button").forEach(b => {
+        b.addEventListener("click", () => {
+          const p = b.dataset.preset;
+          if (p === "now")     setTime(new Date());
+          if (p === "biz")     setTime(nextOrSameDay(1, 10));  // next Mon, 10:00
+          if (p === "late")    setTime(nextOrSameDay(1, 23));  // next Mon, 23:00
+          if (p === "weekend") setTime(nextOrSameDay(6, 3));   // next Sat, 03:00
+        });
+      });
+
+      // Edge-id lookup so we can highlight specific edges by (from,to,predicate)
+      const edgeId = (from, to, predicate) => {
+        const i = data.edges.findIndex(e => e.from === from && e.to === to && e.predicate === predicate);
+        return i >= 0 ? i : null;
+      };
+
+      // Stash original styles so we can restore on each decision
+      const origNodeColors = new Map();
+      data.nodes.forEach(n => origNodeColors.set(n.id, CLASS_COLORS[n.class]));
+
+      const clearHighlight = () => {
+        nodes.update(data.nodes.map(n => ({
+          id: n.id,
+          color: { background: origNodeColors.get(n.id), border: "#0e1116" },
+          borderWidth: 2
+        })));
+        edges.update(data.edges.map((_, i) => ({
+          id: i,
+          color: { color: "#30363d", highlight: "#e6edf3" },
+          width: 1
+        })));
+      };
+
+      const highlight = (pathNodes, pathEdges, ok) => {
+        const ring = ok ? "#2ea043" : "#f85149";
+        nodes.update(pathNodes.map(id => ({
+          id, borderWidth: 4,
+          color: { background: origNodeColors.get(id), border: ring }
+        })));
+        pathEdges.forEach(pe => {
+          const id = edgeId(pe.from, pe.to, pe.predicate);
+          if (id !== null) edges.update({ id, color: { color: ring, highlight: ring }, width: 3 });
+        });
+      };
+
+      document.getElementById("decide").addEventListener("click", () => {
+        const personId = document.getElementById("sel-person").value;
+        const doorId   = document.getElementById("sel-door").value;
+        const t        = new Date(document.getElementById("sel-time").value);
+        const result   = canAccess(data, personId, doorId, t);
+
+        clearHighlight();
+        const ok = result.decision === "grant";
+        if (ok) highlight(result.path, result.edges, true);
+
+        const v = document.getElementById("verdict");
+        v.style.display = "block";
+        v.className = ok ? "grant" : "deny";
+        const personLabel = data.nodes.find(n => n.id === personId).label;
+        const doorLabel   = data.nodes.find(n => n.id === doorId).label;
+        v.innerHTML =
+          `<span class="tag">${ok ? "GRANT" : "DENY"}</span> — ${personLabel} → ${doorLabel}` +
+          `<div class="why">${result.reason}</div>`;
+      });
+    });
+  </script>
+</body>
+</html>
