@@ -12,7 +12,8 @@ This is a pedagogical project. The three concepts being taught are **ontology**,
 
 ```bash
 docker compose up -d                           # start Neo4j → http://localhost:7474
-python3 neo4j/import.py                        # load graph.json (idempotent — wipes and re-imports)
+python3 neo4j/import.py                        # load graph.json into Neo4j (idempotent)
+python3 phase4/import_sql.py                   # build phase4/pacs.db (SQLite mirror)
 python3 agent/agent.py                         # GraphRAG REPL — needs ANTHROPIC_API_KEY
 python3 -m http.server "${HTTP_PORT:-8000}"    # serve architecture.html (port from .env, default 8000)
 ```
@@ -54,6 +55,15 @@ Policy edges (`holds`, `member_of`, `grants_access_to`, `active_during`) carry o
 - **Transcripts are gold.** Every turn saves `{question, plan, rows, answer}` to `agent/transcripts/<timestamp>/`. The next phase (GraphRAG vs SQL comparison) will read these. Don't disable transcript saving without a replacement plan.
 - **Schema source of truth.** The planner reads `ontology.md` at agent startup. If the ontology changes, restart the agent — the system prompt won't pick up edits mid-session, and stale ontology = stale Cypher.
 - **No frameworks for the agent.** Plain Python + `anthropic` SDK + `neo4j` driver. No LangChain, no LlamaIndex. The mechanics are the lesson; abstractions hide them.
+
+## Phase 4 — GraphRAG vs SQL
+
+`phase4/` is a relational mirror of the same data — one entity table per class, one junction table per predicate, `valid_from`/`valid_to` on the temporal junctions. `phase4/comparison.md` walks nine canonical questions through both languages.
+
+- **Single source of truth: `graph.json`.** Both `neo4j/import.py` and `phase4/import_sql.py` read from it. When the JSON changes, re-run *both* importers. Don't edit SQL or Cypher data directly.
+- **Temporal junctions use `INTEGER PRIMARY KEY`**, not a composite PK. That allows multiple rows per (a, b) pair — mirrors Cypher's "two edges between same nodes for re-instatement" pattern.
+- **The honest result.** SQL wins more individual queries than Cypher does in `comparison.md`. The decisive Cypher win is variable-length path matching (Q9). Don't tilt future comparisons toward GraphRAG — the value of `comparison.md` is that it's calibrated.
+- **No agent SQL mode yet.** Could be added: same two-call pattern, planner system prompt teaching the SQL schema instead of the ontology, executor swaps Neo4j driver for `sqlite3`. Listed as optional next in PROGRESS.md.
 
 ## Pedagogical voice
 

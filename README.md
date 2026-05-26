@@ -28,6 +28,10 @@ pacs-graph-101/
 │   ├── prompts.py      ← planner + renderer system prompts
 │   ├── requirements.txt
 │   └── transcripts/    ← per-question artifacts saved by the agent (gitignored)
+├── phase4/
+│   ├── schema.sql      ← SQLite mirror schema (relational shape of the same data)
+│   ├── import_sql.py   ← loads graph.json into SQLite
+│   └── comparison.md   ← GraphRAG vs SQL: side-by-side queries + honest verdict
 ├── architecture.html   ← full architectural walkthrough (read this!)
 ├── .env.example        ← committed template for local secrets
 ├── PROGRESS.md         ← living learning checklist (resume here)
@@ -112,6 +116,15 @@ python3 agent/agent.py
 You'll get an interactive REPL. Type questions in English; each turn shows the planned Cypher, the rows it returned, and the rendered answer. Every turn is saved under `agent/transcripts/<timestamp>/` (four files: `question.txt`, `plan.cypher`, `rows.json`, `answer.txt`).
 
 The agent enforces read-only Cypher in two places: a regex safety gate before execution, and a `default_access_mode="r"` Neo4j session that the driver itself enforces. Belt and braces.
+
+### Phase 4 — GraphRAG vs SQL comparison
+
+```bash
+python3 phase4/import_sql.py            # build SQLite mirror at phase4/pacs.db
+sqlite3 phase4/pacs.db                  # paste queries from phase4/comparison.md
+```
+
+The same `graph.json` populates both Neo4j and SQLite. `phase4/comparison.md` walks nine canonical questions through both query languages side-by-side and gives an honest verdict on each — *not* "GraphRAG always wins"; SQL is competitive or cleaner for most of them. The killer Cypher case is variable-length path matching; the killer SQL case is window functions.
 
 ## Dependencies
 

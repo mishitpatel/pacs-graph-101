@@ -18,6 +18,7 @@
 - [x] **Re-instatement pattern** — multiple edges of the same predicate between the same nodes with non-overlapping windows; credentials are re-issued, not reactivated
 - [x] **GraphRAG agent** — two-call pattern (planner + renderer), safety gates, prompt caching, transcripts
 - [x] **Prompt caching** — prefix match, breakpoint placement, silent invalidators, cost picture
+- [x] **GraphRAG vs SQL** — honest side-by-side: SQL wins on aggregates/window-functions/single-row lookups; Cypher wins decisively on variable-length paths; temporal queries are roughly tied
 
 ## Artifacts built
 - [x] `ontology.md` — schema (with temporal-model section)
@@ -65,10 +66,13 @@
 - [x] `.env` support via python-dotenv (falls back to shell env)
 - [x] **First end-to-end run** — user confirmed working with a handful of questions
 
-## Phase 4 — GraphRAG vs SQL comparison (deferred)
-- [ ] **Decision:** comparing GraphRAG to plain-RAG-over-documents is a strawman — this data never lives as text chunks in reality. The real incumbent is **SQL/relational**. Defer the comparison until we're ready to set up a relational mirror (CardholderTable / AccessGroupTable / AccessLevel / etc. in Postgres or SQLite) and pose the same audit questions in both languages.
-- [ ] Same canonical questions, answered in **Cypher** (via GraphRAG agent) and **SQL** (with `valid_from`/`valid_to` columns and the joins they imply)
-- [ ] Show: side-by-side query complexity, schema-change agility, how each handles re-instatement and temporal as-of
+## Phase 4 — GraphRAG vs SQL comparison (complete)
+- [x] **Decision:** chunked-doc RAG would be a strawman comparison — this data never lives that way in reality. The real incumbent is SQL/relational, so we built a SQLite mirror.
+- [x] `phase4/schema.sql` — faithful relational mirror: one entity table per class, one junction table per predicate, `valid_from` / `valid_to` columns on policy junctions, INTEGER PK on temporal junctions so re-instatement creates a new row (mirrors Cypher's CREATE-not-MERGE pattern)
+- [x] `phase4/import_sql.py` — reads the same `graph.json` and populates SQLite (idempotent)
+- [x] `phase4/comparison.md` — nine canonical questions answered in both Cypher and SQL with honest verdicts
+- [x] **Honest result:** SQL wins more individual queries than Cypher does (Q3 single-row, Q4 count, Q5 gap detection via `LEAD()`, Q8 aggregates). Cypher's decisive win is Q9 variable-length path matching. Most temporal access queries are roughly tied.
+- [ ] (Optional next) Extend the agent with `--sql` mode — plan SQL against `pacs.db` instead of Cypher. Same two-call architecture, different system prompt + executor.
 
 ## Cold-start cheatsheet (for tomorrow)
 ```bash

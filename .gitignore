@@ -14,3 +14,6 @@ __pycache__/
 
 # Per-question transcripts saved by the GraphRAG agent
 agent/transcripts/
+
+# Phase 4 — local SQLite mirror built from graph.json
+phase4/pacs.db

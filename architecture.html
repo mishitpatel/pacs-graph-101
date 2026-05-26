@@ -1188,17 +1188,21 @@ Q3:  input_tokens=30, cache_creation=0,    cache_read=2000
 <section id="next">
 <h2>9 · Where to go next</h2>
 
-<h3>Next phase — GraphRAG vs SQL</h3>
+<h3>Phase 4 — GraphRAG vs SQL (complete)</h3>
 
-<p>The most pedagogically valuable next step is the <strong>honest</strong> comparison. Plain RAG over markdown chunks is a strawman — PACS data never lives that way in reality. The real incumbent is a relational database with <code>valid_from</code> / <code>valid_to</code> columns on every junction table.</p>
+<p><code>phase4/</code> is a relational mirror of the same data — built by <code>phase4/import_sql.py</code> reading the same <code>graph.json</code> into SQLite. <code>phase4/comparison.md</code> walks nine canonical questions through both Cypher and SQL side by side with honest verdicts.</p>
 
-<p>What we'd build:</p>
+<p>Headline result: <strong>SQL wins more individual queries than Cypher does.</strong> Most temporal access queries are roughly tied. Cypher's decisive win is variable-length path matching (recursive CTEs are linear-cost-of-complexity in SQL but constant-cost-of-complexity in Cypher). SQL's decisive wins are aggregates, window functions, and single-row lookups.</p>
+
+<p>The takeaway isn't "graph DBs are better" or "SQL is better." It's:</p>
 
 <ul>
-  <li>A Postgres or SQLite mirror with <code>cardholder</code>, <code>access_group_membership</code>, <code>access_level_assignment</code> tables — same data, relational shape</li>
-  <li>The same canonical questions written as both Cypher (via the agent) and SQL</li>
-  <li>An honest analysis: where SQL is <em>better</em> (well-known, mature tooling, predictable performance), where it gets <em>painful</em> (re-instatement modelling, gap detection, multi-temporal joins), and where it's a wash</li>
+  <li>For audit, reporting, and aggregates → relational</li>
+  <li>For reachability, paths, and structural exploration → graph</li>
+  <li>Real systems at scale do both</li>
 </ul>
+
+<p>An optional future extension: a <code>--sql</code> mode on the agent that plans SQL against <code>phase4/pacs.db</code> instead of Cypher against Neo4j. Same two-call architecture, different system prompt + executor. Listed in <code>PROGRESS.md</code> as the next optional step.</p>
 
 <h3>Pointers for tomorrow-you</h3>
 
