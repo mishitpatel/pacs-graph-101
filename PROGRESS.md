@@ -72,7 +72,15 @@
 - [x] `phase4/import_sql.py` — reads the same `graph.json` and populates SQLite (idempotent)
 - [x] `phase4/comparison.md` — nine canonical questions answered in both Cypher and SQL with honest verdicts
 - [x] **Honest result:** SQL wins more individual queries than Cypher does (Q3 single-row, Q4 count, Q5 gap detection via `LEAD()`, Q8 aggregates). Cypher's decisive win is Q9 variable-length path matching. Most temporal access queries are roughly tied.
-- [ ] (Optional next) Extend the agent with `--sql` mode — plan SQL against `pacs.db` instead of Cypher. Same two-call architecture, different system prompt + executor.
+- [x] Extended the agent with multi-backend support (`--mode cypher|sql|both`). Same two-call architecture, swappable backends in `agent/backends/`. Transcripts now have per-backend subfolders so a single question in `--mode both` produces directly diffable artifacts.
+
+## Phase 5 — Modern AI eval (planned)
+- [ ] Define a canonical question set (probably 15–25 questions) spanning easy/medium/hard difficulty and the question shapes from `phase4/comparison.md`
+- [ ] **Reference answers** — ground truth for each question, derived from the data (`graph.json` + the seed timeline). Each question carries an expected row set and / or expected facts.
+- [ ] **Judges** — programmatic correctness check (row-set match where applicable), plus an LLM-judge for prose-quality and intent-match scoring
+- [ ] **Eval harness** — `eval/run.py` that batches each question through `--mode both` and produces a structured report: per-question correctness, win/lose/tie per backend, latency, token cost (from cache stats), failure modes
+- [ ] **Score breakdown by category** — re-instatement, temporal as-of, variable-length, aggregates, etc. The headline isn't a single number; it's a profile showing where each backend wins.
+- [ ] **Stress dimensions** — ambiguous questions, out-of-scope questions ("why was Carol promoted?"), trick questions ("does Alice have access today?" — yes/no depends on which interpretation of "today" she means), adversarial inputs
 
 ## Cold-start cheatsheet (for tomorrow)
 ```bash

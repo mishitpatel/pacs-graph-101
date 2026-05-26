@@ -1,85 +1,64 @@
 """
-PACS GraphRAG agent.
+PACS GraphRAG agent — supports Cypher (Neo4j) and SQL (SQLite) backends.
 
-A small REPL that turns English questions into Cypher, executes them
-against Neo4j, and renders the result in prose. Three artifacts are
-saved per turn (question, plan, rows, answer) under agent/transcripts/
-so Phase 4 (failure analysis) has something to chew on.
+A small REPL that turns English questions into queries, executes them
+against a chosen backend, and renders the result in prose. Same two-call
+pattern regardless of backend: a planner LLM sees the *schema*, never
+the data; a renderer LLM sees the *rows*, never the schema.
 
-The two LLM calls are kept strictly separate:
+Usage:
+    python3 agent/agent.py                              # interactive REPL, cypher mode
+    python3 agent/agent.py --mode sql                   # interactive, SQL backend
+    python3 agent/agent.py --mode both                  # run every question through BOTH backends
+    python3 agent/agent.py --question "who has Lab?"    # one-shot, then exit
+    python3 agent/agent.py --mode both --question "..." # one-shot, both backends — useful for eval
 
-    user question
-        |
-        v
-    [Claude #1 — Planner]   sees ontology, NOT data; emits Cypher
-        |
-        v
-    [Safety gate — regex]   read-only verbs only
-        |
-        v
-    [Neo4j read session]    executes; returns rows
-        |
-        v
-    [Claude #2 — Renderer]  sees question + Cypher + rows; emits prose
-        |
-        v
-    user
-
-The planner never sees rows. The renderer never composes queries.
-This is the central safety property of GraphRAG.
-
-Run:
-    pip install -r requirements.txt
-    python3 agent.py
+Transcripts are saved per-question under agent/transcripts/<timestamp>/.
+In multi-backend mode each backend gets its own subfolder, so a single
+question produces directly diffable artifacts.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
-import re
 import sys
 import textwrap
 from datetime import datetime
 from pathlib import Path
 
 import anthropic
-from neo4j import GraphDatabase
 
-# Load .env if present — optional convenience for the user.
+# Treat the agent/ directory as a flat import root — sibling files like
+# `prompts.py` and the `backends/` subpackage become importable as
+# `import prompts` / `from backends import …`. This avoids the agent.py
+# vs `agent/` package name collision that would otherwise cause a
+# circular import.
+_AGENT_DIR = Path(__file__).resolve().parent
+if str(_AGENT_DIR) not in sys.path:
+    sys.path.insert(0, str(_AGENT_DIR))
+
+# Load .env if present
 try:
     from dotenv import load_dotenv
-    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+    load_dotenv(_AGENT_DIR.parent / ".env")
 except ImportError:
-    # python-dotenv is optional; ANTHROPIC_API_KEY in the shell env works too.
     pass
 
-import prompts
+import prompts                                   # noqa: E402
+from backends import CypherBackend, SQLBackend   # noqa: E402
 
 
 # --- Configuration -----------------------------------------------------------
 
 REPO_ROOT      = Path(__file__).resolve().parent.parent
 TRANSCRIPT_DIR = Path(__file__).resolve().parent / "transcripts"
-NEO4J_URI      = os.environ.get("NEO4J_URI",      "bolt://localhost:7687")
-NEO4J_USER     = os.environ.get("NEO4J_USER",     "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "pacsgraph101")
 MODEL          = "claude-opus-4-7"
 MAX_TOKENS     = 16000
 
-# Forbidden Cypher keywords — defense in depth alongside the read-only
-# Neo4j session below. A driver-level read session would already reject
-# writes, but rejecting *before* hitting Neo4j gives clearer errors and
-# avoids a round trip.
-FORBIDDEN = re.compile(
-    r"\b(?:CREATE|MERGE|DELETE|DETACH|SET|REMOVE|DROP|LOAD\s+CSV|"
-    r"CALL\s+(?!{)|FOREACH)\b",
-    flags=re.IGNORECASE,
-)
-CYPHER_BLOCK = re.compile(r"```(?:cypher|cypher\s*)?\n?(.*?)```", flags=re.DOTALL)
 
-
-# --- ANSI helpers (no extra dep) --------------------------------------------
+# --- ANSI helpers ------------------------------------------------------------
 
 DIM    = "\033[2m"
 BOLD   = "\033[1m"
@@ -87,6 +66,7 @@ GREEN  = "\033[32m"
 RED    = "\033[31m"
 CYAN   = "\033[36m"
 YELLOW = "\033[33m"
+MAGENTA = "\033[35m"
 RESET  = "\033[0m"
 
 
@@ -95,28 +75,15 @@ def hr(label: str = "") -> str:
     return f"{DIM}{line}{RESET}" + (f" {label}" if label else "")
 
 
-# --- Core pipeline -----------------------------------------------------------
-
-def extract_cypher(text: str) -> str:
-    """Pull a single Cypher block out of the planner's response."""
-    matches = CYPHER_BLOCK.findall(text)
-    if not matches:
-        # Fall back: maybe it returned bare Cypher.
-        return text.strip()
-    return matches[0].strip()
+def banner_for_backend(name: str) -> str:
+    color = {"cypher": CYAN, "sql": MAGENTA}.get(name, BOLD)
+    return f"{color}{BOLD}══ {name} ══{RESET}"
 
 
-def safety_check(cypher: str) -> str | None:
-    """Return None if safe, else a human-readable reason."""
-    if FORBIDDEN.search(cypher):
-        match = FORBIDDEN.search(cypher).group(0)
-        return f"query contains forbidden write keyword: {match!r}"
-    return None
+# --- Core LLM calls ----------------------------------------------------------
 
-
-def call_planner(client: anthropic.Anthropic, planner_system: str,
-                 question: str, today: str) -> str:
-    """Ask Claude to compose a Cypher query for the question."""
+def call_planner(client: anthropic.Anthropic, backend, question: str, today: str) -> str:
+    """Ask Claude to compose a query for the question in the backend's language."""
     user_msg = f"TODAY={today}\n\nQuestion: {question}"
     response = client.messages.create(
         model=MODEL,
@@ -125,10 +92,7 @@ def call_planner(client: anthropic.Anthropic, planner_system: str,
         output_config={"effort": "high"},
         system=[{
             "type": "text",
-            "text": planner_system,
-            # Stable system prompt → caches across questions. The volatile
-            # bits (today's date, the question) live in the user message
-            # below, so the cache prefix never shifts.
+            "text": backend.planner_system,
             "cache_control": {"type": "ephemeral"},
         }],
         messages=[{"role": "user", "content": user_msg}],
@@ -136,12 +100,18 @@ def call_planner(client: anthropic.Anthropic, planner_system: str,
     return "".join(b.text for b in response.content if b.type == "text")
 
 
-def call_renderer(client: anthropic.Anthropic, question: str,
-                  cypher: str, rows: list[dict]) -> str:
-    """Ask Claude to translate rows into prose."""
+def call_renderer(
+    client: anthropic.Anthropic,
+    question: str,
+    language: str,
+    query: str,
+    rows: list[dict],
+) -> str:
+    """Translate rows into prose, language-agnostic."""
     user_msg = (
         f"Question: {question}\n\n"
-        f"Cypher run:\n```cypher\n{cypher}\n```\n\n"
+        f"Query language: {language.upper()}\n"
+        f"Query run:\n```{language}\n{query}\n```\n\n"
         f"Rows returned ({len(rows)}):\n{json.dumps(rows, default=str, indent=2)}"
     )
     response = client.messages.create(
@@ -159,124 +129,197 @@ def call_renderer(client: anthropic.Anthropic, question: str,
     return "".join(b.text for b in response.content if b.type == "text").strip()
 
 
-def run_cypher(driver, cypher: str) -> list[dict]:
-    """Execute a Cypher query against a read-only session.
+# --- Per-backend pipeline ----------------------------------------------------
 
-    Neo4j enforces read-only at the session level — even if the safety
-    regex were bypassed, the driver would refuse a write. Belt and braces.
-    """
-    with driver.session(default_access_mode="r") as session:
-        result = session.run(cypher)
-        return [record.data() for record in result]
+def run_one(
+    client: anthropic.Anthropic,
+    backend,
+    question: str,
+    today: str,
+    transcript_folder: Path,
+    verbose: bool = True,
+) -> dict:
+    """Run plan→safety→execute→render for one backend. Save artifacts. Return summary."""
+    backend_folder = transcript_folder / backend.name
+    backend_folder.mkdir(parents=True, exist_ok=True)
 
+    summary = {"backend": backend.name, "status": None, "rows": 0,
+               "query": "", "answer": ""}
 
-def save_transcript(question: str, cypher: str, rows: list[dict], answer: str) -> Path:
-    """Save a per-turn folder with the four artifacts. Returns the path."""
-    TRANSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
-    folder = TRANSCRIPT_DIR / datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
-    folder.mkdir(exist_ok=True)
-    (folder / "question.txt").write_text(question + "\n", encoding="utf-8")
-    (folder / "plan.cypher").write_text(cypher + "\n",  encoding="utf-8")
-    (folder / "rows.json").write_text(json.dumps(rows, default=str, indent=2) + "\n", encoding="utf-8")
-    (folder / "answer.txt").write_text(answer + "\n",   encoding="utf-8")
-    return folder
+    if verbose:
+        print(banner_for_backend(backend.name))
+
+    # 1. Plan
+    if verbose: print(hr("plan"))
+    try:
+        plan_text = call_planner(client, backend, question, today)
+    except anthropic.APIError as e:
+        summary["status"] = "planner_failed"
+        msg = f"Planner failed: {e}"
+        if verbose: print(f"{RED}{msg}{RESET}")
+        (backend_folder / "error.txt").write_text(msg + "\n")
+        return summary
+
+    query = backend.extract(plan_text)
+    summary["query"] = query
+    (backend_folder / f"plan.{backend.file_ext}").write_text(query + "\n", encoding="utf-8")
+    if verbose: print(textwrap.indent(query, "  "))
+
+    # 2. Safety
+    if reason := backend.safety(query):
+        summary["status"] = "rejected"
+        msg = f"REJECTED — {reason}"
+        if verbose: print(f"{RED}{msg}{RESET}")
+        (backend_folder / "error.txt").write_text(msg + "\n")
+        return summary
+
+    # 3. Execute
+    if verbose: print(hr("rows"))
+    try:
+        rows = backend.run(query)
+    except Exception as e:
+        summary["status"] = "execution_failed"
+        msg = f"{backend.name} error: {e}"
+        if verbose: print(f"{RED}{msg}{RESET}")
+        (backend_folder / "rows.json").write_text("[]\n")
+        (backend_folder / "error.txt").write_text(msg + "\n")
+        return summary
+
+    summary["rows"] = len(rows)
+    (backend_folder / "rows.json").write_text(
+        json.dumps(rows, default=str, indent=2) + "\n", encoding="utf-8"
+    )
+    if verbose:
+        for r in rows[:5]:
+            print(textwrap.indent(json.dumps(r, default=str), "  "))
+        if len(rows) > 5:
+            print(f"  {DIM}... ({len(rows) - 5} more){RESET}")
+        if not rows:
+            print(f"  {DIM}(empty result){RESET}")
+
+    # 4. Render
+    if verbose: print(hr("answer"))
+    try:
+        answer = call_renderer(client, question, backend.language, query, rows)
+    except anthropic.APIError as e:
+        summary["status"] = "renderer_failed"
+        msg = f"Renderer failed: {e}"
+        if verbose: print(f"{RED}{msg}{RESET}")
+        (backend_folder / "error.txt").write_text(msg + "\n")
+        return summary
+
+    summary["status"] = "ok"
+    summary["answer"] = answer
+    (backend_folder / "answer.txt").write_text(answer + "\n", encoding="utf-8")
+    if verbose: print(f"{GREEN}{answer}{RESET}")
+
+    return summary
 
 
 # --- REPL --------------------------------------------------------------------
 
-BANNER = f"""\
+def process_question(
+    client: anthropic.Anthropic,
+    backends: list,
+    question: str,
+    today: str,
+    verbose: bool = True,
+) -> Path:
+    """Run a question through every active backend; save a shared transcript folder."""
+    TRANSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
+    folder = TRANSCRIPT_DIR / datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    folder.mkdir(exist_ok=True)
+    (folder / "question.txt").write_text(question + "\n", encoding="utf-8")
+
+    for backend in backends:
+        run_one(client, backend, question, today, folder, verbose=verbose)
+
+    if verbose:
+        print(f"{DIM}  saved → {folder.relative_to(REPO_ROOT)}{RESET}")
+    return folder
+
+
+def repl(backends: list, today: str) -> int:
+    """Interactive loop. Quit with `exit`, Ctrl-D, or Ctrl-C."""
+    client = anthropic.Anthropic()
+
+    names = ", ".join(b.name for b in backends)
+    print(f"""\
 {BOLD}PACS GraphRAG agent{RESET}
-  model:   {MODEL}
-  graph:   {NEO4J_URI}
-  today:   {{today}}
-  saves:   agent/transcripts/
+  model:    {MODEL}
+  backends: {names}
+  today:    {today}
+  saves:    agent/transcripts/
 
 Type a question and press Enter. {DIM}exit{RESET} or Ctrl-D to quit.
-"""
+""")
 
-
-def repl() -> int:
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print(f"{RED}ANTHROPIC_API_KEY is not set in the environment.{RESET}", file=sys.stderr)
-        return 1
-
-    today = datetime.now().date().isoformat()
-    print(BANNER.format(today=today))
-
-    client = anthropic.Anthropic()
-    planner_system = prompts.build_planner_system(prompts.read_ontology(REPO_ROOT))
-
-    driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-    try:
-        driver.verify_connectivity()
-    except Exception as e:
-        print(f"{RED}Cannot reach Neo4j at {NEO4J_URI}: {e}{RESET}", file=sys.stderr)
-        print("  Try: docker compose up -d", file=sys.stderr)
-        return 1
-
-    try:
-        while True:
-            try:
-                question = input(f"\n{CYAN}?{RESET} ").strip()
-            except (EOFError, KeyboardInterrupt):
-                print()
-                break
-            if not question:
-                continue
-            if question.lower() in ("exit", "quit", ":q"):
-                break
-
-            # 1. Plan
-            print(hr("plan"))
-            try:
-                plan_text = call_planner(client, planner_system, question, today)
-            except anthropic.APIError as e:
-                print(f"{RED}Planner failed: {e}{RESET}")
-                continue
-            cypher = extract_cypher(plan_text)
-            print(textwrap.indent(cypher, "  "))
-
-            # 2. Safety
-            reason = safety_check(cypher)
-            if reason:
-                print(f"{RED}REJECTED — {reason}{RESET}")
-                continue
-
-            # 3. Execute
-            print(hr("rows"))
-            try:
-                rows = run_cypher(driver, cypher)
-            except Exception as e:
-                # Common: Cypher syntax error or unknown property. Surface it
-                # to the user; in Phase 4 we'll measure how often this happens.
-                print(f"{RED}Neo4j error: {e}{RESET}")
-                save_transcript(question, cypher, [], f"[neo4j error] {e}")
-                continue
-            for r in rows[:5]:
-                print(textwrap.indent(json.dumps(r, default=str), "  "))
-            if len(rows) > 5:
-                print(f"  {DIM}... ({len(rows) - 5} more){RESET}")
-            if not rows:
-                print(f"  {DIM}(empty result){RESET}")
-
-            # 4. Render
-            print(hr("answer"))
-            try:
-                answer = call_renderer(client, question, cypher, rows)
-            except anthropic.APIError as e:
-                print(f"{RED}Renderer failed: {e}{RESET}")
-                continue
-            print(f"{GREEN}{answer}{RESET}")
-
-            # 5. Save
-            folder = save_transcript(question, cypher, rows, answer)
-            print(f"{DIM}  saved → {folder.relative_to(REPO_ROOT)}{RESET}")
-
-    finally:
-        driver.close()
+    while True:
+        try:
+            question = input(f"\n{CYAN}?{RESET} ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        if not question:
+            continue
+        if question.lower() in ("exit", "quit", ":q"):
+            break
+        process_question(client, backends, question, today, verbose=True)
 
     return 0
 
 
+# --- Backend selection -------------------------------------------------------
+
+def make_backends(mode: str) -> list:
+    """Build the requested backend instances. Each may take seconds to connect."""
+    if mode == "cypher":
+        return [CypherBackend(REPO_ROOT)]
+    if mode == "sql":
+        return [SQLBackend(REPO_ROOT)]
+    if mode == "both":
+        return [CypherBackend(REPO_ROOT), SQLBackend(REPO_ROOT)]
+    raise ValueError(f"unknown mode: {mode}")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
+    parser.add_argument(
+        "--mode", choices=["cypher", "sql", "both"], default="cypher",
+        help="Which backend(s) to run questions through (default: cypher)",
+    )
+    parser.add_argument(
+        "--question", "-q", default=None,
+        help="Run one question and exit (instead of starting the REPL)",
+    )
+    args = parser.parse_args()
+
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        print(f"{RED}ANTHROPIC_API_KEY is not set in the environment.{RESET}",
+              file=sys.stderr)
+        return 1
+
+    try:
+        backends = make_backends(args.mode)
+    except Exception as e:
+        print(f"{RED}Failed to initialise backends: {e}{RESET}", file=sys.stderr)
+        return 1
+
+    today = datetime.now().date().isoformat()
+
+    try:
+        if args.question:
+            client = anthropic.Anthropic()
+            process_question(client, backends, args.question, today, verbose=True)
+            return 0
+        return repl(backends, today)
+    finally:
+        for b in backends:
+            try:
+                b.close()
+            except Exception:
+                pass
+
+
 if __name__ == "__main__":
-    sys.exit(repl())
+    sys.exit(main())

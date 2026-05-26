@@ -54,7 +54,10 @@ Policy edges (`holds`, `member_of`, `grants_access_to`, `active_during`) carry o
 - **Read-only enforced in two places.** A regex safety gate (`FORBIDDEN` in `agent.py`) rejects writes before execution. The Neo4j driver session also uses `default_access_mode="r"`. If you ever need a write — don't. Add a separate write-path with explicit user confirmation.
 - **Transcripts are gold.** Every turn saves `{question, plan, rows, answer}` to `agent/transcripts/<timestamp>/`. The next phase (GraphRAG vs SQL comparison) will read these. Don't disable transcript saving without a replacement plan.
 - **Schema source of truth.** The planner reads `ontology.md` at agent startup. If the ontology changes, restart the agent — the system prompt won't pick up edits mid-session, and stale ontology = stale Cypher.
-- **No frameworks for the agent.** Plain Python + `anthropic` SDK + `neo4j` driver. No LangChain, no LlamaIndex. The mechanics are the lesson; abstractions hide them.
+- **No frameworks for the agent.** Plain Python + `anthropic` SDK + `neo4j` driver + `sqlite3` (stdlib). No LangChain, no LlamaIndex. The mechanics are the lesson; abstractions hide them.
+- **Multi-backend.** `--mode cypher|sql|both` selects which backend(s) run. Each backend (`agent/backends/cypher.py`, `agent/backends/sql.py`) exposes the same interface: `planner_system`, `extract`, `safety`, `run`, `close`. The REPL is mode-agnostic. Adding a new backend (e.g. Postgres) is a new file in `backends/`.
+- **Transcripts are per-backend folders under the timestamp folder.** `question.txt` lives at the timestamp root (shared); the rest is under `cypher/` and/or `sql/`. The structure is designed to be diffable in `--mode both`.
+- **`agent/agent.py` uses flat imports (`import prompts`, `from backends import …`).** The agent directory is added to `sys.path` at startup. Don't use `from agent import …` — it collides with `agent.py` being inside `agent/` and causes a circular import.
 
 ## Phase 4 — GraphRAG vs SQL
 

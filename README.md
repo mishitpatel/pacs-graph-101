@@ -110,12 +110,30 @@ cp .env.example .env   # then edit
 
 # 2. Install agent dependencies and run.
 pip3 install -r agent/requirements.txt
-python3 agent/agent.py
+python3 agent/agent.py                  # interactive, Cypher (default)
+python3 agent/agent.py --mode sql       # interactive, SQL (against phase4/pacs.db)
+python3 agent/agent.py --mode both      # both backends, side by side
+python3 agent/agent.py -q "who has Lab access?" --mode both    # one-shot
 ```
 
-You'll get an interactive REPL. Type questions in English; each turn shows the planned Cypher, the rows it returned, and the rendered answer. Every turn is saved under `agent/transcripts/<timestamp>/` (four files: `question.txt`, `plan.cypher`, `rows.json`, `answer.txt`).
+Same two-call architecture for both backends — a planner LLM sees the *schema* and emits a query, a renderer LLM sees the *rows* and emits prose. The backends are selected by `--mode`; the safety machinery is identical (regex gate + driver-level read-only mode); the renderer is shared.
 
-The agent enforces read-only Cypher in two places: a regex safety gate before execution, and a `default_access_mode="r"` Neo4j session that the driver itself enforces. Belt and braces.
+Each question saves a transcript folder:
+
+```
+agent/transcripts/<timestamp>/
+├── question.txt              ← shared
+├── cypher/
+│   ├── plan.cypher
+│   ├── rows.json
+│   └── answer.txt
+└── sql/                      ← only present if --mode sql or both
+    ├── plan.sql
+    ├── rows.json
+    └── answer.txt
+```
+
+In `--mode both`, the directly diffable per-backend folders make programmatic comparison trivial — useful when we get to AI-eval-style stress testing of the two backends on the same question set.
 
 ### Phase 4 — GraphRAG vs SQL comparison
 
