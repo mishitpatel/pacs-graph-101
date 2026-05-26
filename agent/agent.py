@@ -25,29 +25,35 @@ import json
 import os
 import sys
 import textwrap
+import time
 from datetime import datetime
 from pathlib import Path
 
 import anthropic
 
-# Treat the agent/ directory as a flat import root — sibling files like
-# `prompts.py` and the `backends/` subpackage become importable as
-# `import prompts` / `from backends import …`. This avoids the agent.py
-# vs `agent/` package name collision that would otherwise cause a
-# circular import.
+# Allow `python3 agent/agent.py` (direct script) AND `python3 -m agent.agent`
+# AND `import agent.agent` from another package (e.g. the eval harness).
+#
+# When invoked as a script, Python puts the script's directory (`agent/`) on
+# sys.path[0], which would cause `from agent import prompts` to find this
+# very file (shadowing the package). Strip that entry and add the repo root
+# instead, and force __package__ so relative imports work.
 _AGENT_DIR = Path(__file__).resolve().parent
-if str(_AGENT_DIR) not in sys.path:
-    sys.path.insert(0, str(_AGENT_DIR))
+_REPO_ROOT = _AGENT_DIR.parent
+if __name__ == "__main__" and __package__ in (None, ""):
+    sys.path = [p for p in sys.path if p not in (str(_AGENT_DIR), "")]
+    sys.path.insert(0, str(_REPO_ROOT))
+    __package__ = "agent"
 
 # Load .env if present
 try:
     from dotenv import load_dotenv
-    load_dotenv(_AGENT_DIR.parent / ".env")
+    load_dotenv(_REPO_ROOT / ".env")
 except ImportError:
     pass
 
-import prompts                                   # noqa: E402
-from backends import CypherBackend, SQLBackend   # noqa: E402
+from agent import prompts                                  # noqa: E402
+from agent.backends import CypherBackend, SQLBackend       # noqa: E402
 
 
 # --- Configuration -----------------------------------------------------------
@@ -82,8 +88,20 @@ def banner_for_backend(name: str) -> str:
 
 # --- Core LLM calls ----------------------------------------------------------
 
-def call_planner(client: anthropic.Anthropic, backend, question: str, today: str) -> str:
-    """Ask Claude to compose a query for the question in the backend's language."""
+def _usage_dict(usage) -> dict:
+    """Pull the cache-aware token counts off a Claude response.usage object."""
+    return {
+        "input_tokens":                getattr(usage, "input_tokens", 0),
+        "output_tokens":               getattr(usage, "output_tokens", 0),
+        "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
+        "cache_read_input_tokens":     getattr(usage, "cache_read_input_tokens", 0) or 0,
+    }
+
+
+def call_planner(client: anthropic.Anthropic, backend, question: str, today: str) -> tuple[str, dict]:
+    """Ask Claude to compose a query for the question in the backend's language.
+    Returns (text, usage_dict).
+    """
     user_msg = f"TODAY={today}\n\nQuestion: {question}"
     response = client.messages.create(
         model=MODEL,
@@ -97,7 +115,8 @@ def call_planner(client: anthropic.Anthropic, backend, question: str, today: str
         }],
         messages=[{"role": "user", "content": user_msg}],
     )
-    return "".join(b.text for b in response.content if b.type == "text")
+    text = "".join(b.text for b in response.content if b.type == "text")
+    return text, _usage_dict(response.usage)
 
 
 def call_renderer(
@@ -106,8 +125,8 @@ def call_renderer(
     language: str,
     query: str,
     rows: list[dict],
-) -> str:
-    """Translate rows into prose, language-agnostic."""
+) -> tuple[str, dict]:
+    """Translate rows into prose. Returns (text, usage_dict)."""
     user_msg = (
         f"Question: {question}\n\n"
         f"Query language: {language.upper()}\n"
@@ -126,7 +145,8 @@ def call_renderer(
         }],
         messages=[{"role": "user", "content": user_msg}],
     )
-    return "".join(b.text for b in response.content if b.type == "text").strip()
+    text = "".join(b.text for b in response.content if b.type == "text").strip()
+    return text, _usage_dict(response.usage)
 
 
 # --- Per-backend pipeline ----------------------------------------------------
@@ -139,26 +159,57 @@ def run_one(
     transcript_folder: Path,
     verbose: bool = True,
 ) -> dict:
-    """Run plan→safety→execute→render for one backend. Save artifacts. Return summary."""
+    """Run plan→safety→execute→render for one backend. Save artifacts. Return a
+    rich summary suitable for both interactive display and programmatic eval:
+
+        {
+          "backend":        "cypher" | "sql",
+          "status":         "ok" | "planner_failed" | "rejected" | "execution_failed" | "renderer_failed",
+          "rows":           int,           # row count
+          "rows_data":      list[dict],    # actual rows (for the eval row-set comparison)
+          "query":          str,
+          "answer":         str,
+          "planner_usage":  dict | None,
+          "renderer_usage": dict | None,
+          "latency_ms": {
+            "planner":   float | None,
+            "executor":  float | None,
+            "renderer":  float | None,
+          },
+        }
+    """
     backend_folder = transcript_folder / backend.name
     backend_folder.mkdir(parents=True, exist_ok=True)
 
-    summary = {"backend": backend.name, "status": None, "rows": 0,
-               "query": "", "answer": ""}
+    summary: dict = {
+        "backend":        backend.name,
+        "status":         None,
+        "rows":           0,
+        "rows_data":      [],
+        "query":          "",
+        "answer":         "",
+        "planner_usage":  None,
+        "renderer_usage": None,
+        "latency_ms":     {"planner": None, "executor": None, "renderer": None},
+    }
 
     if verbose:
         print(banner_for_backend(backend.name))
 
     # 1. Plan
     if verbose: print(hr("plan"))
+    t0 = time.perf_counter()
     try:
-        plan_text = call_planner(client, backend, question, today)
+        plan_text, planner_usage = call_planner(client, backend, question, today)
     except anthropic.APIError as e:
         summary["status"] = "planner_failed"
+        summary["latency_ms"]["planner"] = round((time.perf_counter() - t0) * 1000, 1)
         msg = f"Planner failed: {e}"
         if verbose: print(f"{RED}{msg}{RESET}")
         (backend_folder / "error.txt").write_text(msg + "\n")
         return summary
+    summary["planner_usage"] = planner_usage
+    summary["latency_ms"]["planner"] = round((time.perf_counter() - t0) * 1000, 1)
 
     query = backend.extract(plan_text)
     summary["query"] = query
@@ -175,17 +226,21 @@ def run_one(
 
     # 3. Execute
     if verbose: print(hr("rows"))
+    t0 = time.perf_counter()
     try:
         rows = backend.run(query)
     except Exception as e:
         summary["status"] = "execution_failed"
+        summary["latency_ms"]["executor"] = round((time.perf_counter() - t0) * 1000, 1)
         msg = f"{backend.name} error: {e}"
         if verbose: print(f"{RED}{msg}{RESET}")
         (backend_folder / "rows.json").write_text("[]\n")
         (backend_folder / "error.txt").write_text(msg + "\n")
         return summary
+    summary["latency_ms"]["executor"] = round((time.perf_counter() - t0) * 1000, 1)
 
     summary["rows"] = len(rows)
+    summary["rows_data"] = rows
     (backend_folder / "rows.json").write_text(
         json.dumps(rows, default=str, indent=2) + "\n", encoding="utf-8"
     )
@@ -199,14 +254,20 @@ def run_one(
 
     # 4. Render
     if verbose: print(hr("answer"))
+    t0 = time.perf_counter()
     try:
-        answer = call_renderer(client, question, backend.language, query, rows)
+        answer, renderer_usage = call_renderer(
+            client, question, backend.language, query, rows
+        )
     except anthropic.APIError as e:
         summary["status"] = "renderer_failed"
+        summary["latency_ms"]["renderer"] = round((time.perf_counter() - t0) * 1000, 1)
         msg = f"Renderer failed: {e}"
         if verbose: print(f"{RED}{msg}{RESET}")
         (backend_folder / "error.txt").write_text(msg + "\n")
         return summary
+    summary["renderer_usage"] = renderer_usage
+    summary["latency_ms"]["renderer"] = round((time.perf_counter() - t0) * 1000, 1)
 
     summary["status"] = "ok"
     summary["answer"] = answer
@@ -224,19 +285,24 @@ def process_question(
     question: str,
     today: str,
     verbose: bool = True,
-) -> Path:
-    """Run a question through every active backend; save a shared transcript folder."""
-    TRANSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
-    folder = TRANSCRIPT_DIR / datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    transcript_root: Path | None = None,
+) -> dict:
+    """Run a question through every active backend; save a shared transcript folder.
+
+    Returns:
+        {"folder": Path, "summaries": [run_one() result per backend, in order]}
+    """
+    root = transcript_root if transcript_root is not None else TRANSCRIPT_DIR
+    root.mkdir(parents=True, exist_ok=True)
+    folder = root / datetime.now().strftime("%Y-%m-%dT%H-%M-%S-%f")
     folder.mkdir(exist_ok=True)
     (folder / "question.txt").write_text(question + "\n", encoding="utf-8")
 
-    for backend in backends:
-        run_one(client, backend, question, today, folder, verbose=verbose)
+    summaries = [run_one(client, b, question, today, folder, verbose=verbose) for b in backends]
 
     if verbose:
         print(f"{DIM}  saved → {folder.relative_to(REPO_ROOT)}{RESET}")
-    return folder
+    return {"folder": folder, "summaries": summaries}
 
 
 def repl(backends: list, today: str) -> int:

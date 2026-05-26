@@ -26,7 +26,7 @@ class CypherBackend:
     file_ext = "cypher"
 
     def __init__(self, repo_root: Path):
-        import prompts   # agent/ is on sys.path; this resolves to agent/prompts.py
+        from agent import prompts
         self.planner_system = prompts.build_cypher_planner_system(
             prompts.read_ontology(repo_root)
         )

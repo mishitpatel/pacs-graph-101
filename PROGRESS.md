@@ -74,13 +74,18 @@
 - [x] **Honest result:** SQL wins more individual queries than Cypher does (Q3 single-row, Q4 count, Q5 gap detection via `LEAD()`, Q8 aggregates). Cypher's decisive win is Q9 variable-length path matching. Most temporal access queries are roughly tied.
 - [x] Extended the agent with multi-backend support (`--mode cypher|sql|both`). Same two-call architecture, swappable backends in `agent/backends/`. Transcripts now have per-backend subfolders so a single question in `--mode both` produces directly diffable artifacts.
 
-## Phase 5 — Modern AI eval (planned)
-- [ ] Define a canonical question set (probably 15–25 questions) spanning easy/medium/hard difficulty and the question shapes from `phase4/comparison.md`
-- [ ] **Reference answers** — ground truth for each question, derived from the data (`graph.json` + the seed timeline). Each question carries an expected row set and / or expected facts.
-- [ ] **Judges** — programmatic correctness check (row-set match where applicable), plus an LLM-judge for prose-quality and intent-match scoring
-- [ ] **Eval harness** — `eval/run.py` that batches each question through `--mode both` and produces a structured report: per-question correctness, win/lose/tie per backend, latency, token cost (from cache stats), failure modes
-- [ ] **Score breakdown by category** — re-instatement, temporal as-of, variable-length, aggregates, etc. The headline isn't a single number; it's a profile showing where each backend wins.
-- [ ] **Stress dimensions** — ambiguous questions, out-of-scope questions ("why was Carol promoted?"), trick questions ("does Alice have access today?" — yes/no depends on which interpretation of "today" she means), adversarial inputs
+## Phase 5 — Modern AI eval (harness built, question set to expand)
+- [x] **Agent instrumented** — `run_one()` now returns per-phase latency, token usage (incl. cache_creation/cache_read), and structured failure modes
+- [x] **Eval harness** — `eval/run.py` batches questions through `--mode both`, produces `eval/reports/<timestamp>/{report.md, raw.json, transcripts/}`
+- [x] **Row-set scorer** — `eval/scorer.py` normalizes Cypher (`p.label`) vs SQL (`label`) column-name differences via value-multiset comparison
+- [x] **Markdown reporter** — `eval/reporter.py` with aggregate scores, per-category breakdown, per-question detail (query + answer + missing/extra), cost summary
+- [x] **First end-to-end run** — 4 starter questions, $0.13 total cost, cache reads confirmed working
+- [ ] **Curate the full question set** — expand from 4 to ~15–20 questions across categories. User to drive.
+- [ ] **Decide on match mode** — strict row-set (current; flags verbose Cypher as wrong) vs contains-match (lenient; accepts verbose if answer is in there). Probably per-question metadata.
+- [ ] **First-run insights from 4 starter questions:**
+    - Cypher planner hallucinated `'grp_con_day'` instead of `'grp_con'` (the actual ID). Worth tightening the prompt with the canonical IDs, or steering it to use labels.
+    - Cypher returns extra columns in `RETURN` clauses where SQL is more focused. Real difference, worth flagging in the eval.
+- [ ] **Stress dimensions** — ambiguous questions, out-of-scope ("why was Carol promoted?"), trick questions, adversarial inputs
 
 ## Cold-start cheatsheet (for tomorrow)
 ```bash

@@ -1,0 +1,63 @@
+# Canonical question set for the PACS GraphRAG eval.
+#
+# Each question carries:
+#   id              short slug, used in report and transcript folder names
+#   category        broad shape — used for per-category aggregate scoring
+#   difficulty      easy | medium | hard | trick
+#   question        the English question fed to the agent
+#   expected_rows   a list of expected result rows (after value-set normalisation)
+#                   each row is a list of values (order within a row doesn't matter,
+#                   order across rows doesn't matter)
+#                   for "out of scope" questions the expected_rows is []
+#   notes           context for humans reading the question set
+#
+# Row-set matching: the scorer collapses each actual row to its set of values,
+# then compares the multiset of those sets against expected_rows. This is
+# permissive about column naming (`p.label` vs `label`) without losing fidelity.
+#
+# Start small — four questions across the spectrum — and expand together in
+# the next step.
+
+- id: q01_snapshot_lab_today
+  category: snapshot
+  difficulty: easy
+  question: "Who currently has access to the Lab Door?"
+  expected_rows:
+    - ["Carol"]
+  notes: |
+    Snapshot of current state. Alice's Employees membership closed
+    2026-05-10, so today only Carol remains.
+
+- id: q02_asof_lab_2026_04_15
+  category: temporal-as-of
+  difficulty: medium
+  question: "Who had access to the Lab Door on 2026-04-15?"
+  expected_rows:
+    - ["Alice"]
+    - ["Carol"]
+  notes: |
+    The auditor's classic. Alice was still in Employees on 2026-04-15.
+    Both backends should return Alice + Carol. The snapshot-mode answer
+    (Carol only) would be wrong.
+
+- id: q03_bob_stint_count
+  category: re-instatement
+  difficulty: medium
+  question: "How many separate stints has Bob had in ContractorsDay?"
+  expected_rows:
+    - [2]
+  notes: |
+    Bob's contract ended 2026-04-15 and was re-instated 2026-04-22.
+    Two non-overlapping `member_of` edges in the graph; two rows in
+    `membership` in the SQLite mirror. Either backend should COUNT to 2.
+
+- id: q04_carol_promotion_date
+  category: history
+  difficulty: easy
+  question: "When did Carol become an Admin?"
+  expected_rows:
+    - ["2026-03-01"]
+  notes: |
+    Carol's promotion. Single closed-or-open edge lookup — read off
+    valid_from. SQL doesn't need any joins for this; Cypher needs a
+    minimal MATCH pattern.

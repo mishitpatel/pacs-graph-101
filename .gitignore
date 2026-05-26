@@ -17,3 +17,7 @@ agent/transcripts/
 
 # Phase 4 — local SQLite mirror built from graph.json
 phase4/pacs.db
+
+# Eval reports — each run produces a timestamped directory with transcripts.
+# Commit `questions.yaml`, `run.py`, etc., but not the per-run outputs.
+eval/reports/
