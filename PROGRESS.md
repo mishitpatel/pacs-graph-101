@@ -79,13 +79,17 @@
 - [x] **Eval harness** — `eval/run.py` batches questions through `--mode both`, produces `eval/reports/<timestamp>/{report.md, raw.json, transcripts/}`
 - [x] **Row-set scorer** — `eval/scorer.py` normalizes Cypher (`p.label`) vs SQL (`label`) column-name differences via value-multiset comparison
 - [x] **Markdown reporter** — `eval/reporter.py` with aggregate scores, per-category breakdown, per-question detail (query + answer + missing/extra), cost summary
-- [x] **First end-to-end run** — 4 starter questions, $0.13 total cost, cache reads confirmed working
-- [ ] **Curate the full question set** — expand from 4 to ~15–20 questions across categories. User to drive.
-- [ ] **Decide on match mode** — strict row-set (current; flags verbose Cypher as wrong) vs contains-match (lenient; accepts verbose if answer is in there). Probably per-question metadata.
-- [ ] **First-run insights from 4 starter questions:**
-    - Cypher planner hallucinated `'grp_con_day'` instead of `'grp_con'` (the actual ID). Worth tightening the prompt with the canonical IDs, or steering it to use labels.
-    - Cypher returns extra columns in `RETURN` clauses where SQL is more focused. Real difference, worth flagging in the eval.
-- [ ] **Stress dimensions** — ambiguous questions, out-of-scope ("why was Carol promoted?"), trick questions, adversarial inputs
+- [x] **Question set expanded to 15** across 7 categories (snapshot, temporal-as-of, re-instatement, history, aggregate, variable-length, out-of-scope)
+- [x] **Both planner prompts tightened** with canonical IDs/labels reference table + Minimal RETURN/SELECT rule — fixes ID hallucination and verbose-columns bugs surfaced in the first run
+- [x] **Decision: keep strict row-set scoring.** Surfaces real planner-quality differences (verbosity, hallucinated IDs). Don't relax — tighten the planner prompts instead.
+- [x] **Canonical eval result:** `cypher 14/15`, `sql 14/15`; ~$0.40 total, ~3 minutes. Both backends genuinely competitive on this question set.
+- [x] **Known limitation:** out-of-scope questions ("why was X promoted?") can't be scored by row-set alone — planners legitimately return tangentially-related rows; the renderer prose admits ignorance but isn't scored. q15 is left as a deliberate failing case to motivate an LLM-judge layer.
+
+## Phase 6 — Eval extensions (future)
+- [ ] **LLM-as-judge layer** for prose-quality and out-of-scope handling, complementing row-set scoring
+- [ ] **More stress dimensions** — ambiguous phrasings, adversarial inputs, schema-aware paraphrases
+- [ ] **Parallelism** — `--parallel N` to fire backend calls concurrently (asyncio + AsyncAnthropic), cutting eval wall-time
+- [ ] **Cross-run comparison tooling** — diff two `eval/reports/<timestamp>/raw.json` files to see what changed between runs (useful after prompt iteration)
 
 ## Cold-start cheatsheet (for tomorrow)
 ```bash

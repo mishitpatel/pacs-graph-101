@@ -105,6 +105,39 @@ open and closed.
   and reach a Person, use `<-[:holds]-` (reversed arrow) or undirected.
 - `managed_by` points from Reader → Controller. Reverse it to start
   at the Controller.
+
+# Canonical node IDs — USE THESE EXACTLY
+
+Do NOT invent or pluralise IDs. When the user asks by label, prefer
+matching on `.label` (more robust against typos than `.id`). When
+matching on `.id`, use ONLY an id from this table:
+
+| Class       | IDs (with labels in parens)                                    |
+| ----------- | -------------------------------------------------------------- |
+| Person      | `alice` (Alice), `bob` (Bob), `carol` (Carol)                  |
+| Credential  | `badge001` (Badge-001), `badge002` (Badge-002), `badge003` (Badge-003), `badge004` (Badge-004) |
+| AccessGroup | `grp_emp` (Employees), `grp_con` (ContractorsDay), `grp_adm` (Admins) |
+| Schedule    | `sch_247` (24x7), `sch_biz` (BusinessHours)                    |
+| Reader      | `r1` (Reader R1), `r2` (Reader R2), `r3` (Reader R3)           |
+| Door        | `d_front` (Front Door), `d_lab` (Lab Door), `d_srv` (Server Room Door) |
+| Zone        | `z_lobby` (Lobby), `z_lab` (Lab), `z_srv` (Server Room)        |
+| Controller  | `panel_a` (Panel A)                                            |
+
+If you're unsure of the ID, match on `.label` — labels are unique and
+match the user's English directly.
+
+# Minimal RETURN clauses
+
+Return ONLY the columns needed to answer the question. Match the shape:
+
+- "When did X happen?" → return the date column only.
+- "Who did X?" → return just the person label.
+- "How many X?" → return just the count.
+- "Which group / door / zone …?" → return just that label.
+- "Show me the timeline / details" → return all relevant columns.
+
+Verbose RETURN clauses cause the eval to flag your answer as wrong even
+when the data is correct.
 """
 
 
@@ -201,6 +234,39 @@ rows including closed ones.
 - For gap detection between consecutive validity windows, use
   `LEAD(valid_from) OVER (ORDER BY valid_from)` — much cleaner than
   self-joining the table.
+
+# Canonical IDs and labels — USE THESE EXACTLY
+
+Do NOT invent, pluralise, or singularise these. Match the user's
+English to one of these entries:
+
+| Table         | (id, label) pairs                                              |
+| ------------- | -------------------------------------------------------------- |
+| person        | (alice, Alice), (bob, Bob), (carol, Carol)                     |
+| credential    | (badge001, Badge-001), (badge002, Badge-002), (badge003, Badge-003), (badge004, Badge-004) |
+| access_group  | (grp_emp, Employees), (grp_con, ContractorsDay), (grp_adm, Admins) |
+| schedule      | (sch_247, 24x7), (sch_biz, BusinessHours)                      |
+| reader        | (r1, Reader R1), (r2, Reader R2), (r3, Reader R3)              |
+| door          | (d_front, Front Door), (d_lab, Lab Door), (d_srv, Server Room Door) |
+| zone          | (z_lobby, Lobby), (z_lab, Lab), (z_srv, Server Room)           |
+| controller    | (panel_a, Panel A)                                             |
+
+Watch the plurals — it's `Admins`, `Employees`, `ContractorsDay` —
+never `Admin`, `Employee`, `Contractor`. If the user types "the admin
+group", match `g.label = 'Admins'` or `g.id = 'grp_adm'`.
+
+# Minimal SELECT clauses
+
+Return ONLY the columns needed to answer the question. Match the shape:
+
+- "When did X happen?" → SELECT the date column only.
+- "Who did X?" → SELECT just the person label.
+- "How many X?" → SELECT just the count.
+- "Which group / door / zone …?" → SELECT just that label.
+- "Show me the timeline / details" → SELECT all relevant columns.
+
+Verbose SELECTs cause the eval to flag your answer as wrong even when
+the data is correct.
 """
 
 

@@ -3,20 +3,26 @@
 # Each question carries:
 #   id              short slug, used in report and transcript folder names
 #   category        broad shape — used for per-category aggregate scoring
+#                   one of: snapshot | temporal-as-of | re-instatement |
+#                           history | aggregate | variable-length | out-of-scope
 #   difficulty      easy | medium | hard | trick
 #   question        the English question fed to the agent
 #   expected_rows   a list of expected result rows (after value-set normalisation)
-#                   each row is a list of values (order within a row doesn't matter,
-#                   order across rows doesn't matter)
+#                   each row is a list of values (order within a row doesn't
+#                   matter, order across rows doesn't matter)
 #                   for "out of scope" questions the expected_rows is []
 #   notes           context for humans reading the question set
 #
-# Row-set matching: the scorer collapses each actual row to its set of values,
-# then compares the multiset of those sets against expected_rows. This is
-# permissive about column naming (`p.label` vs `label`) without losing fidelity.
-#
-# Start small — four questions across the spectrum — and expand together in
-# the next step.
+# Row-set matching: the scorer collapses each actual row to its multiset of
+# values, then compares against expected_rows. This is permissive about
+# column naming (`p.label` vs `label`) but strict about column COUNT — a
+# verbose planner that returns extra columns gets flagged as wrong. The
+# `Minimal RETURN/SELECT` rule in the planner system prompts is what
+# enforces conciseness; failures here surface real planner-quality bugs.
+
+# ============================================================================
+# Snapshot (current state)
+# ============================================================================
 
 - id: q01_snapshot_lab_today
   category: snapshot
@@ -25,10 +31,23 @@
   expected_rows:
     - ["Carol"]
   notes: |
-    Snapshot of current state. Alice's Employees membership closed
-    2026-05-10, so today only Carol remains.
+    Alice's Employees membership closed 2026-05-10; only Carol remains.
 
-- id: q02_asof_lab_2026_04_15
+- id: q02_snapshot_server_today
+  category: snapshot
+  difficulty: easy
+  question: "Who currently has access to the Server Room?"
+  expected_rows:
+    - ["Carol"]
+  notes: |
+    Only the Admins group grants Server Room access, and Carol is the
+    only current member of Admins.
+
+# ============================================================================
+# Temporal — as-of past dates
+# ============================================================================
+
+- id: q03_asof_lab_2026_04_15
   category: temporal-as-of
   difficulty: medium
   question: "Who had access to the Lab Door on 2026-04-15?"
@@ -36,28 +55,168 @@
     - ["Alice"]
     - ["Carol"]
   notes: |
-    The auditor's classic. Alice was still in Employees on 2026-04-15.
-    Both backends should return Alice + Carol. The snapshot-mode answer
-    (Carol only) would be wrong.
+    The auditor's classic. Alice was still in Employees on April 15
+    (her revocation was May 10). Snapshot-mode "Carol only" would be
+    wrong.
 
-- id: q03_bob_stint_count
+- id: q04_asof_employees_2026_02_01
+  category: temporal-as-of
+  difficulty: medium
+  question: "Who was a member of the Employees group on 2026-02-01?"
+  expected_rows:
+    - ["Alice"]
+    - ["Carol"]
+  notes: |
+    Alice joined Employees 2026-01-01 (active then); Carol joined
+    2026-01-15 (active then). Bob is in ContractorsDay, not Employees.
+
+- id: q05_asof_copresence_alice_2026_03_15
+  category: temporal-as-of
+  difficulty: hard
+  question: "Who else could have been in the Lab with Alice on 2026-03-15?"
+  expected_rows:
+    - ["Carol"]
+  notes: |
+    Co-presence query. Anyone *other than Alice* with Lab access on
+    that date. Bob has no Lab access ever. Carol does (via Employees).
+
+# ============================================================================
+# Re-instatement (the hardest shape — multiple non-overlapping windows)
+# ============================================================================
+
+- id: q06_bob_stint_count
   category: re-instatement
   difficulty: medium
   question: "How many separate stints has Bob had in ContractorsDay?"
   expected_rows:
-    - [2]
+    - ["2"]
   notes: |
     Bob's contract ended 2026-04-15 and was re-instated 2026-04-22.
-    Two non-overlapping `member_of` edges in the graph; two rows in
-    `membership` in the SQLite mirror. Either backend should COUNT to 2.
+    Two non-overlapping member_of rows. Just the count.
 
-- id: q04_carol_promotion_date
+- id: q07_who_was_reinstated
+  category: re-instatement
+  difficulty: hard
+  question: "Which person has been a member of an access group on more than one separate occasion?"
+  expected_rows:
+    - ["Bob"]
+  notes: |
+    Only one person in the seeded data has been re-instated (Bob into
+    ContractorsDay). The query needs to find people with multiple
+    member_of rows to the same group.
+
+- id: q08_bob_gap_dates
+  category: re-instatement
+  difficulty: hard
+  question: "What were the start and end dates of Bob's gap in ContractorsDay membership?"
+  expected_rows:
+    - ["2026-04-15", "2026-04-22"]
+  notes: |
+    Gap detection — Cypher needs collect+UNWIND, SQL has LEAD()
+    window function. Expected as one row with two date values.
+
+# ============================================================================
+# History — read a date off a closed (or first-open) edge
+# ============================================================================
+
+- id: q09_carol_promotion_date
   category: history
   difficulty: easy
   question: "When did Carol become an Admin?"
   expected_rows:
     - ["2026-03-01"]
   notes: |
-    Carol's promotion. Single closed-or-open edge lookup — read off
-    valid_from. SQL doesn't need any joins for this; Cypher needs a
-    minimal MATCH pattern.
+    Carol's Admins membership started 2026-03-01 (still active). The
+    valid_from of the row.
+
+- id: q10_alice_employees_end
+  category: history
+  difficulty: easy
+  question: "When did Alice's Employees membership end?"
+  expected_rows:
+    - ["2026-05-10"]
+  notes: |
+    Single row lookup, read valid_to. SQL needs no joins; Cypher needs
+    a minimal MATCH.
+
+# ============================================================================
+# Aggregate (counts, group-bys)
+# ============================================================================
+
+- id: q11_doors_per_group
+  category: aggregate
+  difficulty: medium
+  question: "How many doors does each access group currently grant access to?"
+  expected_rows:
+    - ["Employees",      "2"]
+    - ["ContractorsDay", "1"]
+    - ["Admins",         "1"]
+  notes: |
+    Three rows. Employees grants Front Door + Lab Door. ContractorsDay
+    grants Front Door. Admins grants Server Room Door. Each grant edge
+    must be live now (no closed grant edges in the seed data, so
+    snapshot-mode is equivalent here).
+
+- id: q12_multi_group_count
+  category: aggregate
+  difficulty: medium
+  question: "How many people are currently members of more than one access group?"
+  expected_rows:
+    - ["1"]
+  notes: |
+    Only Carol is in two groups currently (Employees + Admins).
+    A single integer count.
+
+# ============================================================================
+# Variable-length / multi-hop reachability
+# ============================================================================
+
+- id: q13_badge003_zones
+  category: variable-length
+  difficulty: medium
+  question: "Which zones can Badge-003 currently reach through the access graph?"
+  expected_rows:
+    - ["Lobby"]
+    - ["Lab"]
+    - ["Server Room"]
+  notes: |
+    Badge-003 belongs to Carol (holds edge, still active). Carol is in
+    BOTH Employees (Front + Lab → Lobby, Lab zones) AND Admins (Server
+    Room Door → Server Room zone). Multi-hop traversal: badge ← holds
+    — person → member_of → group → grants_access_to → door → protects
+    → zone. Cypher's home turf via undirected `[*1..N]`; SQL needs
+    recursive CTE or 6-way join.
+    Picked Badge-003 (not Badge-001) because Badge-001 is revoked, so
+    "currently" gives a 0-row answer and would test nothing about the
+    traversal mechanics.
+
+- id: q14_controller_for_lab
+  category: variable-length
+  difficulty: medium
+  question: "Which controller manages the reader that controls the Lab Door?"
+  expected_rows:
+    - ["Panel A"]
+  notes: |
+    Lab Door ← controls — Reader R2 → managed_by → Panel A.
+    Two reverse traversals. Static (non-temporal) edges only.
+
+# ============================================================================
+# Out-of-scope / trick — data doesn't have the answer
+# ============================================================================
+
+- id: q15_carol_promotion_reason
+  category: out-of-scope
+  difficulty: trick
+  question: "Why was Carol promoted to Admin on 2026-03-01?"
+  expected_rows: []
+  notes: |
+    The graph records WHAT (the membership edge with valid_from) but
+    not WHY (no business-reason / approval-record column).
+    Known limitation: row-set scoring is too strict for trick
+    questions. Planners often return tangentially-related rows (the
+    membership row, in this case) even when the question asks for
+    something the schema doesn't capture. The *prose answer* correctly
+    admits ignorance — that's the artifact worth checking, and it
+    needs an LLM-as-judge to score. Leaving here as a deliberate
+    known-failing case to motivate the LLM-judge layer in the next
+    eval iteration.

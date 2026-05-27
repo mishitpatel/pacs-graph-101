@@ -144,6 +144,24 @@ sqlite3 phase4/pacs.db                  # paste queries from phase4/comparison.m
 
 The same `graph.json` populates both Neo4j and SQLite. `phase4/comparison.md` walks nine canonical questions through both query languages side-by-side and gives an honest verdict on each — *not* "GraphRAG always wins"; SQL is competitive or cleaner for most of them. The killer Cypher case is variable-length path matching; the killer SQL case is window functions.
 
+### Eval harness (Phase 5)
+
+```bash
+python3 eval/run.py                       # all questions, both backends
+python3 eval/run.py --questions q01,q03   # subset by id
+python3 eval/run.py --mode sql            # SQL-only
+python3 eval/run.py --max 3               # cap for cheap iteration
+```
+
+`eval/questions.yaml` is the canonical 15-question set (snapshot, temporal-as-of, re-instatement, history, aggregate, variable-length, out-of-scope). Each question carries `expected_rows` for deterministic row-set scoring.
+
+Each run writes `eval/reports/<timestamp>/`:
+- `report.md` — aggregate stats, per-category breakdown, per-question detail (query + answer + missing/extra rows), and an Opus-4.7 cost estimate
+- `raw.json` — all per-question records (for re-analysis)
+- `transcripts/` — per-question per-backend artifacts (gitignored along with `reports/`)
+
+Current canonical result on this question set: **cypher 14/15, sql 14/15**, ~$0.40 / 3 minutes per full run. The one open failure (`q15_carol_promotion_reason`) is a known limitation of row-set scoring for trick questions — motivates the LLM-judge layer in Phase 6.
+
 ## Dependencies
 
 | What | Why | How loaded |
